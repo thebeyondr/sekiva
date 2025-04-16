@@ -144,9 +144,7 @@ _These projects focus on building dApps that highlight Partisia's MPC-powered pr
 - **User Interface and Experience:** Provide a simple interface for the game (it can be command-line or web). It should allow an organizer to input questions and correct answers (or load a set), and allow players to join and submit answers. Show the results after each question or at the end: e.g., display the leaderboard of scores without exposing what each answer was (aside from indicating right or wrong).
 - **Expandability & Creativity:** Extra credit for making the game easily extensible or more engaging. For example, support multiple questions (a quiz series), multiple players, or even a smart contract that can handle many different trivia games (rooms) in parallel. This is not a strict requirement, but good design and creativity here will be noted in the evaluation.
 
-### 5. **MPC-Enabled Crowdfunding Platform – Private Funding with Threshold Reveal** (Reward: **$4,000**, Est. Timeline: 4 weeks) 🔄
-
-**Status:** In Progress
+### 5. **MPC-Enabled Crowdfunding Platform – Private Funding with Threshold Reveal** (Reward: **$4,000**, Est. Timeline: 4 weeks)
 
 **Brief:** a crowdfunding platform where contributions are submitted privately. The total funds raised are revealed only if a predefined funding threshold is met. This model allows backers to support projects without exposing individual contribution details, leveraging MPC to secure and aggregate the data.
 

@@ -112,7 +112,9 @@ _These projects focus on building dApps that highlight Partisia's MPC-powered pr
 - **User Interface & Experience:** Provide a basic front-end showing the blind mint process. Even if simplistic, it should inform the user that they will get a random NFT and allow them to trigger the reveal. After reveal, the user should see what NFT they obtained (image or description).
 - **Verification & Transparency:** Even though the process is random, users and observers should be confident it's fair. Consider providing a proof or record of the random draw (for example, a hash of the secret seed before reveal and then unveiling the seed later for verification). Clear instructions on how others could verify the fairness (e.g., check that the revealed seed produces the outcome recorded on-chain) will earn extra credit.
 
-### 3. Privacy-Protected Lottery Game – _MPC-Based Lucky Draw_ (Reward: **$3,000**, Est. Timeline: 3 weeks)
+### 3. Privacy-Protected Lottery Game – _MPC-Based Lucky Draw_ (Reward: **$3,000**, Est. Timeline: 3 weeks) 🔄
+
+**Status:** In Progress
 
 **Brief:** Create a simple lottery or lucky draw dApp in which participants can buy entries and a winner is chosen at random using Partisia's MPC capabilities. The twist is that all tickets and the drawing process are privacy-protected until the drawing concludes. This prevents issues like front-running or someone manipulating the draw, as the winning number is determined through a secure multi-party computation only when the lottery ends. The contract can collect entry fees (in MPC tokens or another asset) and at a preset time (or once a certain number of tickets are sold) perform an MPC computation to pick a winner. Only the winner's identifier is revealed (or the prize automatically sent), without revealing any unnecessary data about other participants. This project demonstrates fair random selection and the power of MPC to run lotteries or raffles that are transparent in outcome but private in process.
 
@@ -143,6 +145,8 @@ _These projects focus on building dApps that highlight Partisia's MPC-powered pr
 - **Expandability & Creativity:** Extra credit for making the game easily extensible or more engaging. For example, support multiple questions (a quiz series), multiple players, or even a smart contract that can handle many different trivia games (rooms) in parallel. This is not a strict requirement, but good design and creativity here will be noted in the evaluation.
 
 ### 5. **MPC-Enabled Crowdfunding Platform – Private Funding with Threshold Reveal** (Reward: **$4,000**, Est. Timeline: 4 weeks) 🔄
+
+**Status:** In Progress
 
 **Brief:** a crowdfunding platform where contributions are submitted privately. The total funds raised are revealed only if a predefined funding threshold is met. This model allows backers to support projects without exposing individual contribution details, leveraging MPC to secure and aggregate the data.
 

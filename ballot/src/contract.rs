@@ -90,43 +90,6 @@ struct BallotState {
     tally: Option<Tally>, // Only contains aggregated counts, not individual votes
 }
 
-// impl BallotState {
-//     fn assert_administrator(&self, sender: Address) {
-//         assert!(
-//             sender == self.administrator,
-//             "Only the administrator can call this function"
-//         );
-//     }
-
-//     fn assert_active(&self) {
-//         assert!(
-//             self.status.as_ref().unwrap() == &BallotStatus::Active {},
-//             "Voting is not active"
-//         );
-//     }
-
-//     fn assert_tallying(&self) {
-//         assert!(
-//             self.status.as_ref().unwrap() == &BallotStatus::Tallying {},
-//             "Not tallying"
-//         );
-//     }
-
-//     fn assert_completed(&self) {
-//         assert!(
-//             self.status.as_ref().unwrap() == &BallotStatus::Completed {},
-//             "Not completed"
-//         );
-//     }
-
-//     fn assert_cancelled(&self) {
-//         assert!(
-//             self.status.as_ref().unwrap() == &BallotStatus::Cancelled {},
-//             "Not cancelled"
-//         );
-//     }
-// }
-
 /// Initializes contract
 ///
 /// Creates a new ballot with the given options.

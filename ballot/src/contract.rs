@@ -246,12 +246,6 @@ fn compute_tally(
         zk_state.calculation_state,
     );
 
-    let tally_result_variable = zk_state
-        .secret_variables
-        .iter()
-        .find(|(_, v)| matches!(v.metadata, SecretVarType::TallyResult {}))
-        .map(|(id, _)| id.clone());
-
     (
         BallotState {
             status: Some(BallotStatus::Tallying {}),
@@ -300,10 +294,12 @@ fn open_tally_result(
         "Unexpected number of output variables"
     );
 
-    let variable_id = *opened_variables.first().unwrap();
+    let opened_variable = zk_state
+        .get_variable(*opened_variables.first().unwrap())
+        .unwrap();
 
     // Use our helper function to read the TallyResult
-    let tally_result = read_variable(&zk_state, &variable_id);
+    let tally_result = read_variable(&zk_state, &opened_variable.variable_id);
 
     let new_tally = Tally {
         option_0: tally_result.option_0,
@@ -318,17 +314,19 @@ fn open_tally_result(
             + tally_result.option_4,
     };
 
-    // Update state with results
-    state.status = Some(BallotStatus::Completed {});
-    state.tally = Some(new_tally);
+    let mut zk_state_changes = vec![];
+    if let SecretVarType::TallyResult {} = opened_variable.metadata {
+        state.tally = Some(new_tally);
+        zk_state_changes = vec![ZkStateChange::ContractDone]
+    }
 
-    // Mark contract as done
-    (state, vec![], vec![ZkStateChange::ContractDone])
+    (state, vec![], zk_state_changes)
 }
 
 /// Reads a variable's data as a TallyResult.
 fn read_variable(zk_state: &ZkState<SecretVarType>, variable_id: &SecretVarId) -> TallyResult {
     let variable = zk_state.get_variable(*variable_id).unwrap();
     let buffer: Vec<u8> = variable.data.clone().unwrap();
+
     TallyResult::state_read_from(&mut buffer.as_slice())
 }

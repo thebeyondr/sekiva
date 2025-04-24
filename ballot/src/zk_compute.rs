@@ -4,12 +4,6 @@ use pbc_zk::*;
 #[allow(unused)]
 const VOTE_VARIABLE_KIND: u8 = 0u8;
 
-// #[derive(CreateTypeSpec, SecretBinary)]
-// pub struct ZKInput {
-//     pub choice: Sbi8,
-//     pub total_options: Sbi8,
-// }
-
 #[derive(CreateTypeSpec, SecretBinary)]
 pub struct TallyOutput {
     option_0: Sbi32,

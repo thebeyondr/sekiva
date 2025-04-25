@@ -54,5 +54,5 @@ When implementing or extending this contract:
 ## Future Improvements
 
 - Implement time-based automatic state transitions
-- Add voter verification
+- Add voter receipts and verification
 - Add organization metadata

@@ -1,4 +1,6 @@
-@import 'tailwindcss';
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
+@import url("https://fonts.bunny.net/css?family=azeret-mono:300,400,700,900");
+@import "tailwindcss";
 
 @plugin 'tailwindcss-animate';
 
@@ -42,6 +44,8 @@
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
+  --font-sans: "Geist", sans-serif;
+  --font-mono: "Azeret Mono", monospace;
 }
 
 /*
@@ -88,7 +92,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+    --radius: 0.5rem;
   }
   .dark {
     --background: 240 10% 3.9%;
@@ -114,7 +118,7 @@
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+    --chart-5: 340 75% 55%;
   }
 }
 @layer base {

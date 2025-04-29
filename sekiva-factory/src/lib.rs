@@ -23,7 +23,7 @@ const DEPLOY_CONTRACT_ADDRESS: Address = Address {
 };
 
 const DEPLOY_SHORTNAME: Shortname = Shortname::from_u32(4);
-const BINDER_ID: u32 = 9;
+const BINDER_ID: i32 = 9;
 
 #[derive(CreateTypeSpec, ReadWriteState, Clone)]
 #[repr(u8)]
@@ -142,6 +142,11 @@ fn deploy_organization(
     profile_image: String,
     banner_image: String,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
+    let org_contract_address = Address {
+        address_type: AddressType::PublicContract,
+        identifier: ctx.original_transaction.bytes[12..32].try_into().unwrap(),
+    };
+
     let mut event_group = EventGroup::builder();
 
     event_group
@@ -160,6 +165,7 @@ fn deploy_organization(
     event_group
         .with_callback(SHORTNAME_DEPLOY_ORGANIZATION_CALLBACK)
         .with_cost(10000)
+        .argument(org_contract_address)
         .done();
 
     (state, vec![event_group.build()])
@@ -181,22 +187,23 @@ fn deploy_organization_callback(
     ctx: ContractContext,
     callback_ctx: CallbackContext,
     state: SekivaFactoryState,
+    org_contract_address: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     if callback_ctx.success {
-        let contract_address = extract_contract_address(&callback_ctx);
+        // let contract_address = extract_contract_address(&callback_ctx);
 
         let mut deployed_contracts = state.deployed_contracts.clone();
-        deployed_contracts.insert(contract_address, ContractType::Organization {});
+        deployed_contracts.insert(org_contract_address, ContractType::Organization {});
 
         let mut organizations = state.organizations.clone();
-        organizations.insert(contract_address);
+        organizations.insert(org_contract_address);
 
         let mut user_organizations = state.user_organizations.clone();
         let mut user_org_set = user_organizations
             .get(&ctx.sender)
             .cloned()
             .unwrap_or_default();
-        user_org_set.insert(contract_address);
+        user_org_set.insert(org_contract_address);
         user_organizations.insert(ctx.sender, user_org_set);
 
         return (
@@ -237,6 +244,10 @@ fn deploy_ballot(
     options: Vec<String>,
     organization: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
+    let ballot_contract_address = Address {
+        address_type: AddressType::PublicContract,
+        identifier: ctx.original_transaction.bytes[12..32].try_into().unwrap(),
+    };
     let mut event_group = EventGroup::builder();
 
     event_group
@@ -256,6 +267,7 @@ fn deploy_ballot(
     event_group
         .with_callback(SHORTNAME_DEPLOY_BALLOT_CALLBACK)
         .with_cost(10000)
+        .argument(ballot_contract_address)
         .done();
 
     (state, vec![event_group.build()])
@@ -277,19 +289,20 @@ fn deploy_ballot_callback(
     ctx: ContractContext,
     callback_ctx: CallbackContext,
     state: SekivaFactoryState,
+    ballot_contract_address: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     if callback_ctx.success {
-        let contract_address = extract_contract_address(&callback_ctx);
+        // let contract_address = extract_contract_address(&callback_ctx);
 
         let mut deployed_contracts = state.deployed_contracts.clone();
-        deployed_contracts.insert(contract_address, ContractType::Ballot {});
+        deployed_contracts.insert(ballot_contract_address, ContractType::Ballot {});
 
         let mut ballots = state.ballots.clone();
-        ballots.insert(contract_address);
+        ballots.insert(ballot_contract_address);
 
         let mut user_ballots = state.user_ballots.clone();
         let mut user_ballot_set = user_ballots.get(&ctx.sender).cloned().unwrap_or_default();
-        user_ballot_set.insert(contract_address);
+        user_ballot_set.insert(ballot_contract_address);
         user_ballots.insert(ctx.sender, user_ballot_set);
 
         return (
@@ -306,16 +319,16 @@ fn deploy_ballot_callback(
     (state, vec![])
 }
 
-/// Extract the contract address from the callback context.
-///
-/// # Arguments
-///
-/// * `callback_ctx` - the callback context containing the results of the contract call.
-///
-/// # Returns
-fn extract_contract_address(callback_ctx: &CallbackContext) -> Address {
-    callback_ctx.results[0].get_return_data::<Address>()
-}
+// /// Extract the contract address from the callback context.
+// ///
+// /// # Arguments
+// ///
+// /// * `callback_ctx` - the callback context containing the results of the contract call.
+// ///
+// /// # Returns
+// fn extract_contract_address(callback_ctx: &CallbackContext) -> Address {
+//     callback_ctx.results[0].get_return_data::<Address>()
+// }
 
 /// Create the initial data for an organization.
 ///

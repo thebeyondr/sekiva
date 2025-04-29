@@ -349,6 +349,9 @@ fn create_org_init_data(
     banner_image: String,
 ) -> Vec<u8> {
     let mut bytes = Vec::new();
+    // The 0xffffffff0f prefix is required for the contract deployment to properly read the serialized data.
+    bytes.extend_from_slice(&[0xff, 0xff, 0xff, 0xff, 0x0f]);
+
     name.rpc_write_to(&mut bytes).unwrap();
     description.rpc_write_to(&mut bytes).unwrap();
     profile_image.rpc_write_to(&mut bytes).unwrap();
@@ -377,6 +380,9 @@ fn create_ballot_init_data(
     administrator: Address,
 ) -> Vec<u8> {
     let mut bytes = Vec::new();
+    // The 0xffffffff0f prefix is required for the contract deployment to properly read the serialized data.
+    bytes.extend_from_slice(&[0xff, 0xff, 0xff, 0xff, 0x0f]);
+
     title.rpc_write_to(&mut bytes).unwrap();
     description.rpc_write_to(&mut bytes).unwrap();
     options.rpc_write_to(&mut bytes).unwrap();

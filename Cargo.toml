@@ -5,7 +5,8 @@ members = [
     "petition",
     "zk-average-salary",
 		"organization",
-		"ballot"
+		"ballot",
+		"sekiva-factory"
 ]
 
 [workspace.package]

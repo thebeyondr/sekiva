@@ -20,7 +20,7 @@ pub struct OrganizationState {
     members: SortedVecSet<Address>,
     name: String,
     profile_image: String,
-    proposals: SortedVecSet<Address>,
+    ballots: SortedVecSet<Address>,
 }
 
 // UI link example:
@@ -73,7 +73,7 @@ pub fn initialize(
         members,
         name,
         profile_image,
-        proposals: SortedVecSet::new(),
+        ballots: SortedVecSet::new(),
     }
 }
 
@@ -341,10 +341,10 @@ pub fn add_proposal(
         state.administrators.contains(&ctx.sender),
         "Only admins can add a proposal."
     );
-    assert!(!state.proposals.contains(&address), "Already a proposal.");
+    assert!(!state.ballots.contains(&address), "Already a proposal.");
 
-    let mut proposals = state.proposals.clone();
-    proposals.insert(address);
+    let mut ballots = state.ballots.clone();
+    ballots.insert(address);
 
-    OrganizationState { proposals, ..state }
+    OrganizationState { ballots, ..state }
 }

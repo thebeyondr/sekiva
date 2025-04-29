@@ -6,11 +6,11 @@ extern crate pbc_contract_codegen;
 extern crate pbc_contract_common;
 
 use create_type_spec_derive::CreateTypeSpec;
-use pbc_contract_common::address::{Address, AddressType, Shortname, ShortnameCallback};
+use pbc_contract_common::address::{Address, AddressType, Shortname};
 use pbc_contract_common::context::{CallbackContext, ContractContext};
 use pbc_contract_common::events::EventGroup;
 use pbc_contract_common::sorted_vec_map::{SortedVecMap, SortedVecSet};
-use pbc_traits::{ReadWriteState, WriteRPC};
+use pbc_traits::WriteRPC;
 use read_write_rpc_derive::ReadWriteRPC;
 use read_write_state_derive::ReadWriteState;
 
@@ -24,7 +24,6 @@ const DEPLOY_CONTRACT_ADDRESS: Address = Address {
 
 const DEPLOY_SHORTNAME: Shortname = Shortname::from_u32(4);
 const BINDER_ID: u32 = 9;
-const DEPLOY_ORGANIZATION_CALLBACK: ShortnameCallback = ShortnameCallback::from_u32(0x10);
 
 #[derive(CreateTypeSpec, ReadWriteState, Clone)]
 #[repr(u8)]
@@ -229,7 +228,7 @@ fn deploy_organization_callback(
 ///
 /// The updated Sekiva Factory state reflecting the new ballot.
 ///
-#[action(shortname = 0x01)]
+#[action(shortname = 0x02)]
 fn deploy_ballot(
     ctx: ContractContext,
     state: SekivaFactoryState,
@@ -273,7 +272,7 @@ fn deploy_ballot(
 ///
 /// ### Returns:
 /// The new state of type [`SekivaFactoryState`].
-#[callback(shortname = 0x10)]
+#[callback(shortname = 0x20)]
 fn deploy_ballot_callback(
     ctx: ContractContext,
     callback_ctx: CallbackContext,

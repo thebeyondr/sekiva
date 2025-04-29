@@ -262,7 +262,17 @@ fn deploy_ballot(
     (state, vec![event_group.build()])
 }
 
-// Callback to handle organization deployment result
+/// Callback for handling ballot deployment. If deployment was successful, adds the new
+/// ballot to state tracking. If unsuccessful, no changes are made to state.
+///
+/// ### Parameters:
+///
+/// * `ctx`: [`ContractContext`], the context of the call.
+/// * `callback_ctx`: [`CallbackContext`], the context of the callback.
+/// * `state`: [`SekivaFactoryState`], the state before the call.
+///
+/// ### Returns:
+/// The new state of type [`SekivaFactoryState`].
 #[callback(shortname = 0x10)]
 fn deploy_ballot_callback(
     ctx: ContractContext,

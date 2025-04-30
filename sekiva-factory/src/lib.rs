@@ -25,9 +25,8 @@ const DEPLOY_CONTRACT_ADDRESS: Address = Address {
 const DEPLOY_SHORTNAME: Shortname = Shortname::from_u32(4);
 const BINDER_ID: i32 = 9;
 
-#[derive(CreateTypeSpec, ReadWriteState, Clone)]
+#[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 #[repr(u8)]
-
 enum BallotStatus {
     #[discriminant(0)]
     Created {},
@@ -41,7 +40,7 @@ enum BallotStatus {
     Cancelled {},
 }
 
-#[derive(CreateTypeSpec, ReadWriteState, Clone)]
+#[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 struct BallotInfo {
     organization: Address,
     title: String,
@@ -349,8 +348,8 @@ fn create_org_init_data(
     banner_image: String,
 ) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0xff, 0xff, 0xff, 0xff, 0x0f];
-    WriteRPC::rpc_write_to(&name, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&description, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&name, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&profile_image, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&banner_image, &mut bytes).unwrap();
     bytes
@@ -377,10 +376,12 @@ fn create_ballot_init_data(
     administrator: Address,
 ) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0xff, 0xff, 0xff, 0xff, 0x0f];
+    WriteRPC::rpc_write_to(&organization, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&title, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&BallotStatus::Created {}, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&0u64, &mut bytes).unwrap(); // created_at
+    WriteRPC::rpc_write_to(&administrator, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&description, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&options, &mut bytes).unwrap();
-    WriteRPC::rpc_write_to(&organization, &mut bytes).unwrap();
-    WriteRPC::rpc_write_to(&administrator, &mut bytes).unwrap();
     bytes
 }

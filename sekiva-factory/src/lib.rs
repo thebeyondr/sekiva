@@ -150,7 +150,6 @@ fn deploy_organization(
 
     event_group
         .call(DEPLOY_CONTRACT_ADDRESS, DEPLOY_SHORTNAME)
-        .argument(BINDER_ID)
         .argument(state.organization_contract_wasm.clone())
         .argument(state.organization_contract_abi.clone())
         .argument(create_org_init_data(
@@ -159,6 +158,7 @@ fn deploy_organization(
             profile_image,
             banner_image,
         ))
+        .argument(BINDER_ID)
         .done();
 
     event_group
@@ -251,7 +251,6 @@ fn deploy_ballot(
 
     event_group
         .call(DEPLOY_CONTRACT_ADDRESS, DEPLOY_SHORTNAME)
-        .argument(BINDER_ID)
         .argument(state.ballot_contract_zkwa.clone())
         .argument(state.ballot_contract_abi.clone())
         .argument(create_ballot_init_data(
@@ -261,6 +260,7 @@ fn deploy_ballot(
             organization,
             ctx.sender,
         ))
+        .argument(BINDER_ID)
         .done();
 
     event_group

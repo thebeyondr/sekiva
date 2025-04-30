@@ -9,6 +9,8 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
+    "@partisiablockchain/abi-client": "^5.172.0",
+    "@partisiablockchain/blockchain-api-transaction-client": "^5.121.0",
     "@radix-ui/react-slot": "^1.2.0",
     "@react-router/node": "^7.5.3",
     "@react-router/serve": "^7.5.3",
@@ -16,6 +18,7 @@
     "clsx": "^2.1.1",
     "isbot": "^5.1.27",
     "lucide-react": "^0.503.0",
+    "partisia-sdk": "^0.1.1-1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router": "^7.5.3",

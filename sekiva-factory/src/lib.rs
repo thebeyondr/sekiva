@@ -23,7 +23,7 @@ const DEPLOY_CONTRACT_ADDRESS: Address = Address {
 };
 
 const DEPLOY_SHORTNAME: Shortname = Shortname::from_u32(4);
-const BINDER_ID: i32 = 9;
+const BINDER_ID: i32 = 10;
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 #[repr(u8)]

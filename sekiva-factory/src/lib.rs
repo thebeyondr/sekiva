@@ -42,13 +42,13 @@ enum BallotStatus {
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 struct BallotInfo {
-    organization: Address,
+    options: Vec<String>,
     title: String,
+    description: String,
+    organization: Address,
+    administrator: Address,
     status: BallotStatus,
     created_at: u64,
-    administrator: Address,
-    description: String,
-    options: Vec<String>,
 }
 
 #[derive(CreateTypeSpec, ReadWriteState, Clone)]
@@ -61,8 +61,8 @@ enum ContractType {
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 struct OrganizationInfo {
-    description: String,
     name: String,
+    description: String,
     profile_image: String,
     banner_image: String,
 }

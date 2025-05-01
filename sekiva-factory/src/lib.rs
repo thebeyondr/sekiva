@@ -23,7 +23,7 @@ const DEPLOY_CONTRACT_ADDRESS: Address = Address {
 };
 
 const DEPLOY_SHORTNAME: Shortname = Shortname::from_u32(4);
-const BINDER_ID: i32 = 10;
+const BINDER_ID: i32 = 9;
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 #[repr(u8)]
@@ -72,8 +72,7 @@ pub struct SekivaFactoryState {
     admin: Address,
     organizations: SortedVecSet<Address>,
     ballots: SortedVecSet<Address>,
-    user_organizations: SortedVecMap<Address, SortedVecSet<Address>>,
-    user_ballots: SortedVecMap<Address, SortedVecSet<Address>>,
+    organization_ballots: SortedVecMap<Address, SortedVecSet<Address>>, // org -> its ballots
     deployed_contracts: SortedVecMap<Address, ContractType>,
     ballot_contract_zkwa: Vec<u8>,
     ballot_contract_abi: Vec<u8>,
@@ -105,13 +104,12 @@ pub fn initialize(
         admin: ctx.sender,
         organizations: SortedVecSet::new(),
         ballots: SortedVecSet::new(),
-        user_organizations: SortedVecMap::new(),
-        user_ballots: SortedVecMap::new(),
         deployed_contracts: SortedVecMap::new(),
         ballot_contract_zkwa,
         ballot_contract_abi,
         organization_contract_wasm,
         organization_contract_abi,
+        organization_ballots: SortedVecMap::new(),
     };
 
     (state, vec![])
@@ -189,26 +187,19 @@ fn deploy_organization_callback(
     org_contract_address: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     if callback_ctx.success {
-        // let contract_address = extract_contract_address(&callback_ctx);
-
         let mut deployed_contracts = state.deployed_contracts.clone();
         deployed_contracts.insert(org_contract_address, ContractType::Organization {});
 
         let mut organizations = state.organizations.clone();
         organizations.insert(org_contract_address);
 
-        let mut user_organizations = state.user_organizations.clone();
-        let mut user_org_set = user_organizations
-            .get(&ctx.sender)
-            .cloned()
-            .unwrap_or_default();
-        user_org_set.insert(org_contract_address);
-        user_organizations.insert(ctx.sender, user_org_set);
+        let mut organization_ballots = state.organization_ballots.clone();
+        organization_ballots.insert(org_contract_address, SortedVecSet::new());
 
         return (
             SekivaFactoryState {
                 organizations,
-                user_organizations,
+                organization_ballots,
                 deployed_contracts,
                 ..state
             },
@@ -267,6 +258,7 @@ fn deploy_ballot(
         .with_callback(SHORTNAME_DEPLOY_BALLOT_CALLBACK)
         .with_cost(10000)
         .argument(ballot_contract_address)
+        .argument(organization)
         .done();
 
     (state, vec![event_group.build()])
@@ -289,6 +281,7 @@ fn deploy_ballot_callback(
     callback_ctx: CallbackContext,
     state: SekivaFactoryState,
     ballot_contract_address: Address,
+    organization: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     if callback_ctx.success {
         // let contract_address = extract_contract_address(&callback_ctx);
@@ -299,15 +292,18 @@ fn deploy_ballot_callback(
         let mut ballots = state.ballots.clone();
         ballots.insert(ballot_contract_address);
 
-        let mut user_ballots = state.user_ballots.clone();
-        let mut user_ballot_set = user_ballots.get(&ctx.sender).cloned().unwrap_or_default();
-        user_ballot_set.insert(ballot_contract_address);
-        user_ballots.insert(ctx.sender, user_ballot_set);
+        let mut organization_ballots = state.organization_ballots.clone();
+        let mut organization_ballot_set = organization_ballots
+            .get(&organization)
+            .cloned()
+            .unwrap_or_default();
+        organization_ballot_set.insert(ballot_contract_address);
+        organization_ballots.insert(organization, organization_ballot_set);
 
         return (
             SekivaFactoryState {
                 ballots,
-                user_ballots,
+                organization_ballots,
                 deployed_contracts,
                 ..state
             },

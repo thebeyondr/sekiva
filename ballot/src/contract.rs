@@ -73,19 +73,16 @@ struct TallyResult {
 
 #[state]
 struct BallotState {
-    administrator: Address,
     organization: Address,
+    administrator: Address,
     title: String,
     description: String,
     options: Vec<String>,
     start_time: u64,
     end_time: u64,
     status: Option<BallotStatus>,
-
-    // PRIVACY MECHANISMS
-    nullifier_hashes: Vec<String>, // Hashed nullifiers to prevent double voting
-
-    tally: Option<Tally>, // Only contains aggregated counts, not individual votes
+    nullifier_hashes: Vec<String>,
+    tally: Option<Tally>,
 }
 
 /// Initializes contract

@@ -15,11 +15,10 @@ pub struct OrganizationState {
     owner: Address,
     administrators: SortedVecSet<Address>, // can make changes to the org, members and add proposals
     members: SortedVecSet<Address>,
-    ballots: SortedVecSet<Address>,
-    banner_image: String,
-    description: String,
     name: String,
+    description: String,
     profile_image: String,
+    banner_image: String,
 }
 
 // UI link example:
@@ -66,12 +65,11 @@ pub fn initialize(
     OrganizationState {
         owner: ctx.sender,
         administrators,
-        banner_image,
-        description,
         members,
         name,
+        description,
         profile_image,
-        ballots: SortedVecSet::new(),
+        banner_image,
     }
 }
 

@@ -73,9 +73,8 @@ struct TallyResult {
 
 #[state]
 struct BallotState {
-    // PUBLIC ADMINISTRATIVE DATA
-    id: String,
     administrator: Address,
+    organization: Address,
     title: String,
     description: String,
     options: Vec<String>,
@@ -86,7 +85,6 @@ struct BallotState {
     // PRIVACY MECHANISMS
     nullifier_hashes: Vec<String>, // Hashed nullifiers to prevent double voting
 
-    // FINAL RESULTS (only populated after computation)
     tally: Option<Tally>, // Only contains aggregated counts, not individual votes
 }
 
@@ -100,13 +98,13 @@ fn initialize(
     options: Vec<String>,
     title: String,
     description: String,
+    organization: Address,
 ) -> BallotState {
     assert!(options.len() <= 5, "At most 5 options are supported");
     assert!(options.len() > 1, "At least 2 options are required");
 
     BallotState {
-        id: ctx.contract_address.to_string(),
-        // organization: ctx.sender,
+        organization,
         administrator: ctx.sender,
         title,
         description,

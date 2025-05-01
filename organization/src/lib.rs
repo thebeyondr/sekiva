@@ -14,13 +14,12 @@ use pbc_contract_common::sorted_vec_map::SortedVecSet;
 pub struct OrganizationState {
     owner: Address,
     administrators: SortedVecSet<Address>, // can make changes to the org, members and add proposals
+    members: SortedVecSet<Address>,
+    ballots: SortedVecSet<Address>,
     banner_image: String,
     description: String,
-    id: String, // txn hash of the creation
-    members: SortedVecSet<Address>,
     name: String,
     profile_image: String,
-    ballots: SortedVecSet<Address>,
 }
 
 // UI link example:
@@ -69,7 +68,6 @@ pub fn initialize(
         administrators,
         banner_image,
         description,
-        id: ctx.current_transaction.to_string(),
         members,
         name,
         profile_image,

@@ -221,10 +221,10 @@ fn deploy_organization_callback(
 ///
 /// * `ctx` - the contract context containing information about the sender and the blockchain.
 /// * `state` - the current state of the Sekiva Factory.
+/// * `options` - the options of the ballot.
 /// * `title` - the title of the ballot.
 /// * `description` - the description of the ballot.
-/// * `profile_image` - the profile image of the ballot.
-/// * `banner_image` - the banner image of the ballot.
+/// * `organization` - the organization of the ballot.
 ///
 /// # Returns
 ///
@@ -234,9 +234,9 @@ fn deploy_organization_callback(
 fn deploy_ballot(
     ctx: ContractContext,
     state: SekivaFactoryState,
+    options: Vec<String>,
     title: String,
     description: String,
-    options: Vec<String>,
     organization: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     let ballot_contract_address = Address {
@@ -250,11 +250,10 @@ fn deploy_ballot(
         .argument(state.ballot_contract_zkwa.clone())
         .argument(state.ballot_contract_abi.clone())
         .argument(create_ballot_init_data(
+            options,
             title,
             description,
-            options,
             organization,
-            ctx.sender,
         ))
         .argument(BINDER_ID)
         .done();
@@ -343,25 +342,24 @@ fn create_org_init_data(
 ///
 /// # Arguments
 ///
+/// * `options` - the options of the ballot.
 /// * `title` - the title of the ballot.
 /// * `description` - the description of the ballot.
-/// * `options` - the options of the ballot.
 /// * `organization` - the organization of the ballot.
-/// * `administrator` - the administrator of the ballot.
 ///
 /// # Returns
 ///
 /// The initial data for a ballot.
 fn create_ballot_init_data(
+    options: Vec<String>,
     title: String,
     description: String,
-    options: Vec<String>,
     organization: Address,
-    administrator: Address,
 ) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0xff, 0xff, 0xff, 0xff, 0x0f];
     WriteRPC::rpc_write_to(&options, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&title, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&description, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&organization, &mut bytes).unwrap();
     bytes
 }

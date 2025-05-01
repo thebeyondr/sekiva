@@ -72,8 +72,8 @@ pub struct SekivaFactoryState {
     admin: Address,
     organizations: SortedVecSet<Address>,
     ballots: SortedVecSet<Address>,
-    organization_ballots: SortedVecMap<Address, SortedVecSet<Address>>, // org -> its ballots
-    deployed_contracts: SortedVecMap<Address, ContractType>,
+    user_org_memberships: SortedVecMap<Address, SortedVecSet<Address>>,
+    organization_ballots: SortedVecMap<Address, SortedVecSet<Address>>,
     ballot_contract_zkwa: Vec<u8>,
     ballot_contract_abi: Vec<u8>,
     organization_contract_wasm: Vec<u8>,
@@ -104,12 +104,12 @@ pub fn initialize(
         admin: ctx.sender,
         organizations: SortedVecSet::new(),
         ballots: SortedVecSet::new(),
-        deployed_contracts: SortedVecMap::new(),
+        user_org_memberships: SortedVecMap::new(),
+        organization_ballots: SortedVecMap::new(),
         ballot_contract_zkwa,
         ballot_contract_abi,
         organization_contract_wasm,
         organization_contract_abi,
-        organization_ballots: SortedVecMap::new(),
     };
 
     (state, vec![])
@@ -187,11 +187,16 @@ fn deploy_organization_callback(
     org_contract_address: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     if callback_ctx.success {
-        let mut deployed_contracts = state.deployed_contracts.clone();
-        deployed_contracts.insert(org_contract_address, ContractType::Organization {});
-
         let mut organizations = state.organizations.clone();
         organizations.insert(org_contract_address);
+
+        let mut user_org_memberships = state.user_org_memberships.clone();
+        let mut user_orgs = user_org_memberships
+            .get(&ctx.sender)
+            .cloned()
+            .unwrap_or_default();
+        user_orgs.insert(org_contract_address);
+        user_org_memberships.insert(ctx.sender, user_orgs);
 
         let mut organization_ballots = state.organization_ballots.clone();
         organization_ballots.insert(org_contract_address, SortedVecSet::new());
@@ -200,7 +205,7 @@ fn deploy_organization_callback(
             SekivaFactoryState {
                 organizations,
                 organization_ballots,
-                deployed_contracts,
+                user_org_memberships,
                 ..state
             },
             vec![],
@@ -284,11 +289,6 @@ fn deploy_ballot_callback(
     organization: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     if callback_ctx.success {
-        // let contract_address = extract_contract_address(&callback_ctx);
-
-        let mut deployed_contracts = state.deployed_contracts.clone();
-        deployed_contracts.insert(ballot_contract_address, ContractType::Ballot {});
-
         let mut ballots = state.ballots.clone();
         ballots.insert(ballot_contract_address);
 
@@ -304,7 +304,6 @@ fn deploy_ballot_callback(
             SekivaFactoryState {
                 ballots,
                 organization_ballots,
-                deployed_contracts,
                 ..state
             },
             vec![],
@@ -313,17 +312,6 @@ fn deploy_ballot_callback(
 
     (state, vec![])
 }
-
-// /// Extract the contract address from the callback context.
-// ///
-// /// # Arguments
-// ///
-// /// * `callback_ctx` - the callback context containing the results of the contract call.
-// ///
-// /// # Returns
-// fn extract_contract_address(callback_ctx: &CallbackContext) -> Address {
-//     callback_ctx.results[0].get_return_data::<Address>()
-// }
 
 /// Create the initial data for an organization.
 ///

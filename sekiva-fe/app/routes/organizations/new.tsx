@@ -1,3 +1,4 @@
+import NewOrganizationScreen from "~/organizations/New";
 import type { Route } from "./+types/new";
 
 export function meta({}: Route.MetaArgs) {
@@ -11,5 +12,5 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function NewOrganization() {
-  return <div>New Organization</div>;
+  return <NewOrganizationScreen />;
 }

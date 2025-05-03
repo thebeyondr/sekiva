@@ -1,5 +1,5 @@
+import OrganizationsHome from "~/organizations/Home";
 import type { Route } from "./+types/index";
-import { Outlet } from "react-router";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -12,10 +12,5 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Organizations() {
-  return (
-    <div>
-      <h1>Organizations</h1>
-      <Outlet />
-    </div>
-  );
+  return <OrganizationsHome />;
 }

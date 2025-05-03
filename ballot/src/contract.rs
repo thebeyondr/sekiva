@@ -12,6 +12,7 @@ use create_type_spec_derive::CreateTypeSpec;
 use pbc_contract_common::address::Address;
 use pbc_contract_common::context::ContractContext;
 use pbc_contract_common::events::EventGroup;
+use pbc_contract_common::sorted_vec_map::SortedVecMap;
 use pbc_contract_common::zk::CalculationStatus;
 use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState, ZkStateChange};
 use pbc_traits::ReadWriteState;
@@ -44,12 +45,13 @@ enum BallotStatus {
     Cancelled {},
 }
 
-#[derive(CreateTypeSpec, ReadWriteState)]
+#[derive(CreateTypeSpec, ReadWriteState, Clone)]
 struct VoteReceipt {
-    commitment: Vec<u8>,
-    timestamp: u64,
-    inclusion_proof: Vec<u8>,
-    option_index: u8,
+    commitment: Vec<u8>,      // Reference to secret input
+    timestamp: u64,           // When vote was cast
+    inclusion_proof: Vec<u8>, // Proof that vote was included in tally
+    option_index: Option<u8>, // Revealed after voting period ends (if user chooses)
+    verified: bool,           // Whether this vote has been verified
 }
 
 #[derive(CreateTypeSpec, ReadWriteState, Clone)]
@@ -82,6 +84,7 @@ struct BallotState {
     end_time: u64,
     status: Option<BallotStatus>,
     nullifier_hashes: Vec<String>,
+    vote_receipts: SortedVecMap<String, VoteReceipt>, // Map nullifier -> receipt
     tally: Option<Tally>,
 }
 
@@ -111,6 +114,7 @@ fn initialize(
         status: Some(BallotStatus::Created {}),
         tally: None,
         nullifier_hashes: Vec::new(),
+        vote_receipts: SortedVecMap::new(),
     }
 }
 
@@ -157,7 +161,20 @@ fn cast_vote(
 
     // Store nullifier hash to prevent double voting
     let mut null_hashes = state.nullifier_hashes.clone();
-    null_hashes.push(nullifier_hash);
+    null_hashes.push(nullifier_hash.clone());
+
+    // Create vote receipt
+    let mut vote_receipts = state.vote_receipts.clone();
+    vote_receipts.insert(
+        nullifier_hash.clone(),
+        VoteReceipt {
+            commitment: Vec::new(), // Will be populated after ZK computation
+            timestamp: context.block_production_time as u64,
+            inclusion_proof: Vec::new(), // Will be populated after tallying
+            option_index: None,
+            verified: false,
+        },
+    );
 
     // Define secret input for the vote
     let input_def =
@@ -166,6 +183,7 @@ fn cast_vote(
     (
         BallotState {
             nullifier_hashes: null_hashes,
+            vote_receipts,
             status: state.status.clone(),
             ..state
         },
@@ -287,4 +305,94 @@ fn read_variable(zk_state: &ZkState<SecretVarType>, variable_id: &SecretVarId) -
     let buffer: Vec<u8> = variable.data.clone().unwrap();
 
     TallyResult::state_read_from(&mut buffer.as_slice())
+}
+
+/// Allows a user to verify their vote after tallying is complete.
+///
+/// # Arguments
+///
+/// * `context` - The contract context
+/// * `state` - The current ballot state
+/// * `zk_state` - The ZK state
+/// * `nullifier_hash` - The nullifier hash used when voting
+/// * `option_index` - The option index that was voted for
+/// * `proof` - The ZK proof of vote inclusion
+///
+/// # Returns
+///
+/// Updated ballot state with verified vote
+#[action(shortname = 0x43, zk = true)]
+fn verify_vote(
+    context: ContractContext,
+    state: BallotState,
+    zk_state: ZkState<SecretVarType>,
+    nullifier_hash: String,
+    option_index: u8,
+    proof: Vec<u8>,
+) -> BallotState {
+    // Verify ballot is completed
+    assert!(
+        state.status.unwrap() == BallotStatus::Completed {},
+        "Ballot must be completed to verify votes"
+    );
+
+    // Verify nullifier exists and get receipt
+    let receipt = state
+        .vote_receipts
+        .get(&nullifier_hash)
+        .expect("No vote found for this nullifier");
+
+    // Verify not already verified
+    assert!(!receipt.verified, "Vote already verified");
+
+    // Verify option index is valid
+    assert!(
+        option_index < state.options.len() as u8,
+        "Invalid option index"
+    );
+
+    // TODO: Implement actual ZK proof verification
+    // This would verify that:
+    // 1. The proof matches the commitment stored in the vote receipt
+    // 2. The vote was included in the final tally
+    // 3. The option index matches what was voted for
+    // For now, we'll just mark it as verified
+    let mut vote_receipts = state.vote_receipts.clone();
+    vote_receipts.insert(
+        nullifier_hash,
+        VoteReceipt {
+            commitment: receipt.commitment.clone(),
+            timestamp: receipt.timestamp,
+            inclusion_proof: proof,
+            option_index: Some(option_index),
+            verified: true,
+        },
+    );
+
+    BallotState {
+        vote_receipts,
+        ..state
+    }
+}
+
+/// Get a vote receipt by nullifier hash.
+///
+/// # Arguments
+///
+/// * `context` - The contract context
+/// * `state` - The current ballot state
+/// * `zk_state` - The ZK state
+/// * `nullifier_hash` - The nullifier hash to look up
+///
+/// # Returns
+///
+/// The vote receipt if found, None otherwise
+#[action(shortname = 0x44, zk = true)]
+fn get_vote_receipt(
+    context: ContractContext,
+    state: BallotState,
+    zk_state: ZkState<SecretVarType>,
+    nullifier_hash: String,
+) -> Option<VoteReceipt> {
+    state.vote_receipts.get(&nullifier_hash).cloned()
 }

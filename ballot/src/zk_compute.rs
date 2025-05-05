@@ -15,7 +15,7 @@ pub struct TallyOutput {
 
 #[zk_compute(shortname = 0x72)]
 pub fn tally_votes() -> TallyOutput {
-    // Initialize counters for each option (max 5)
+    // Initialize counters for each option
     let mut tally = TallyOutput {
         option_0: Sbi32::from(0),
         option_1: Sbi32::from(0),
@@ -44,11 +44,5 @@ pub fn tally_votes() -> TallyOutput {
         }
     }
 
-    TallyOutput {
-        option_0: tally.option_0,
-        option_1: tally.option_1,
-        option_2: tally.option_2,
-        option_3: tally.option_3,
-        option_4: tally.option_4,
-    }
+    tally
 }

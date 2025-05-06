@@ -19,6 +19,7 @@ pub struct OrganizationState {
     description: String,
     profile_image: String,
     banner_image: String,
+    ballots: SortedVecSet<Address>,
 }
 
 // UI link example:
@@ -66,6 +67,7 @@ pub fn initialize(
         owner: ctx.sender,
         administrators,
         members,
+        ballots: SortedVecSet::new(),
         name,
         description,
         profile_image,
@@ -328,16 +330,16 @@ pub fn remove_members(
 /// The updated organization state reflecting the new proposal.
 
 #[action(shortname = 0x04)]
-pub fn add_proposal(
+pub fn add_ballot(
     ctx: ContractContext,
     state: OrganizationState,
     address: Address,
 ) -> OrganizationState {
     assert!(
         state.administrators.contains(&ctx.sender),
-        "Only admins can add a proposal."
+        "Only admins can add a ballot."
     );
-    assert!(!state.ballots.contains(&address), "Already a proposal.");
+    assert!(!state.ballots.contains(&address), "Already a ballot.");
 
     let mut ballots = state.ballots.clone();
     ballots.insert(address);

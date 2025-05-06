@@ -12,7 +12,7 @@ use create_type_spec_derive::CreateTypeSpec;
 use pbc_contract_common::address::Address;
 use pbc_contract_common::context::ContractContext;
 use pbc_contract_common::events::EventGroup;
-use pbc_contract_common::sorted_vec_map::SortedVecMap;
+use pbc_contract_common::sorted_vec_map::SortedVecSet;
 use pbc_contract_common::zk::CalculationStatus;
 use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState, ZkStateChange};
 use pbc_traits::ReadWriteState;
@@ -46,12 +46,6 @@ enum BallotStatus {
 }
 
 #[derive(CreateTypeSpec, ReadWriteState, Clone)]
-struct VoteReceipt {
-    commitment: Vec<u8>, // SHA-256 hash of vote + nullifier + nonce
-    timestamp: u64,      // When vote was cast
-}
-
-#[derive(CreateTypeSpec, ReadWriteState, Clone)]
 struct Tally {
     pub option_0: u32,
     pub option_1: u32,
@@ -80,8 +74,7 @@ struct BallotState {
     start_time: u64,
     end_time: u64,
     status: Option<BallotStatus>,
-    nullifier_hashes: Vec<String>,
-    vote_receipts: SortedVecMap<String, VoteReceipt>, // Map nullifier -> receipt
+    voters: SortedVecSet<Address>, // Tracks who has already voted
     tally: Option<Tally>,
 }
 
@@ -110,8 +103,7 @@ fn initialize(
         end_time: 0,
         status: Some(BallotStatus::Created {}),
         tally: None,
-        nullifier_hashes: Vec::new(),
-        vote_receipts: SortedVecMap::new(),
+        voters: SortedVecSet::new(),
     }
 }
 
@@ -138,46 +130,26 @@ fn cast_vote(
     context: ContractContext,
     state: BallotState,
     zk_state: ZkState<SecretVarType>,
-    nullifier_hash: String,
-    commitment: Vec<u8>, // Client-generated commitment
 ) -> (
     BallotState,
     Vec<EventGroup>,
     ZkInputDef<SecretVarType, Sbi8>,
 ) {
-    // Verify ballot is active
     assert!(
         state.status.unwrap() == BallotStatus::Active {},
         "Ballot is not active"
     );
 
-    // Verify hasn't voted before
-    assert!(
-        !state.nullifier_hashes.contains(&nullifier_hash),
-        "Already voted"
-    );
+    assert!(!state.voters.contains(&context.sender), "Already voted");
 
-    // Store nullifier hash to prevent double voting
-    let mut null_hashes = state.nullifier_hashes.clone();
-    null_hashes.push(nullifier_hash.clone());
+    let mut voters = state.voters.clone();
+    voters.insert(context.sender);
 
-    // Store commitment in vote receipt
-    let mut vote_receipts = state.vote_receipts.clone();
-    vote_receipts.insert(
-        nullifier_hash.clone(),
-        VoteReceipt {
-            commitment,
-            timestamp: context.block_production_time as u64,
-        },
-    );
-
-    // Define secret input for the vote (actual vote value comes from client)
     let input_def = ZkInputDef::<SecretVarType, Sbi8>::with_metadata(None, SecretVarType::Vote {});
 
     (
         BallotState {
-            nullifier_hashes: null_hashes,
-            vote_receipts,
+            voters,
             status: state.status.clone(),
             ..state
         },
@@ -299,26 +271,4 @@ fn read_variable(zk_state: &ZkState<SecretVarType>, variable_id: &SecretVarId) -
     let buffer: Vec<u8> = variable.data.clone().unwrap();
 
     TallyResult::state_read_from(&mut buffer.as_slice())
-}
-
-/// Get a vote receipt by nullifier hash.
-///
-/// # Arguments
-///
-/// * `context` - The contract context
-/// * `state` - The current ballot state
-/// * `zk_state` - The ZK state
-/// * `nullifier_hash` - The nullifier hash to look up
-///
-/// # Returns
-///
-/// The vote receipt if found, None otherwise
-#[action(shortname = 0x44, zk = true)]
-fn get_vote_receipt(
-    context: ContractContext,
-    state: BallotState,
-    zk_state: ZkState<SecretVarType>,
-    nullifier_hash: String,
-) -> Option<VoteReceipt> {
-    state.vote_receipts.get(&nullifier_hash).cloned()
 }

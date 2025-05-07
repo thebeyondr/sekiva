@@ -1,10 +1,10 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
-import {
+import type {
   SenderAuthentication,
   Signature,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { ec } from "elliptic";
-import { CryptoUtils } from "../client/CryptoUtils";
+import { CryptoUtils } from "~/partisia-client/CryptoUtils";
 import { BigEndianByteOutput } from "@secata-public/bitmanipulation-ts";
 
 /**
@@ -21,7 +21,9 @@ export const connectPrivateKey = async (
         transactionPayload,
         BigEndianByteOutput.serialize((out) => out.writeString(chainId)),
       ]);
-      return Promise.resolve(CryptoUtils.signatureToBuffer(keyPair.sign(hash)).toString("hex"));
+      return Promise.resolve(
+        CryptoUtils.signatureToBuffer(keyPair.sign(hash)).toString("hex")
+      );
     },
   };
 };

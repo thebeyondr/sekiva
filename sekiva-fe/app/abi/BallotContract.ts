@@ -26,7 +26,7 @@ type Option<K> = K | undefined;
 export class BallotContract {
   private readonly _client: BlockchainStateClient | undefined;
   private readonly _address: BlockchainAddress | undefined;
-  
+
   public constructor(
     client: BlockchainStateClient | undefined,
     address: BlockchainAddress | undefined
@@ -35,7 +35,7 @@ export class BallotContract {
     this._client = client;
   }
   public deserializeBallotState(_input: AbiInput): BallotState {
-    const id: string = _input.readString();
+    const organization: BlockchainAddress = _input.readAddress();
     const administrator: BlockchainAddress = _input.readAddress();
     const title: string = _input.readString();
     const description: string = _input.readString();
@@ -53,11 +53,11 @@ export class BallotContract {
       const status_option: BallotStatus = this.deserializeBallotStatus(_input);
       status = status_option;
     }
-    const nullifierHashes_vecLength = _input.readI32();
-    const nullifierHashes: string[] = [];
-    for (let nullifierHashes_i = 0; nullifierHashes_i < nullifierHashes_vecLength; nullifierHashes_i++) {
-      const nullifierHashes_elem: string = _input.readString();
-      nullifierHashes.push(nullifierHashes_elem);
+    const voters_setLength = _input.readI32();
+    const voters: BlockchainAddress[] = [];
+    for (let voters_i = 0; voters_i < voters_setLength; voters_i++) {
+      const voters_elem: BlockchainAddress = _input.readAddress();
+      voters.push(voters_elem);
     }
     let tally: Option<Tally> = undefined;
     const tally_isSome = _input.readBoolean();
@@ -65,7 +65,18 @@ export class BallotContract {
       const tally_option: Tally = this.deserializeTally(_input);
       tally = tally_option;
     }
-    return { id, administrator, title, description, options, startTime, endTime, status, nullifierHashes, tally };
+    return {
+      organization,
+      administrator,
+      title,
+      description,
+      options,
+      startTime,
+      endTime,
+      status,
+      voters,
+      tally,
+    };
   }
   public deserializeBallotStatus(_input: AbiInput): BallotStatus {
     const discriminant = _input.readU8();
@@ -83,19 +94,25 @@ export class BallotContract {
     throw new Error("Unknown discriminant: " + discriminant);
   }
   public deserializeBallotStatusCreated(_input: AbiInput): BallotStatusCreated {
-    return { discriminant: BallotStatusD.Created,  };
+    return { discriminant: BallotStatusD.Created };
   }
   public deserializeBallotStatusActive(_input: AbiInput): BallotStatusActive {
-    return { discriminant: BallotStatusD.Active,  };
+    return { discriminant: BallotStatusD.Active };
   }
-  public deserializeBallotStatusTallying(_input: AbiInput): BallotStatusTallying {
-    return { discriminant: BallotStatusD.Tallying,  };
+  public deserializeBallotStatusTallying(
+    _input: AbiInput
+  ): BallotStatusTallying {
+    return { discriminant: BallotStatusD.Tallying };
   }
-  public deserializeBallotStatusCompleted(_input: AbiInput): BallotStatusCompleted {
-    return { discriminant: BallotStatusD.Completed,  };
+  public deserializeBallotStatusCompleted(
+    _input: AbiInput
+  ): BallotStatusCompleted {
+    return { discriminant: BallotStatusD.Completed };
   }
-  public deserializeBallotStatusCancelled(_input: AbiInput): BallotStatusCancelled {
-    return { discriminant: BallotStatusD.Cancelled,  };
+  public deserializeBallotStatusCancelled(
+    _input: AbiInput
+  ): BallotStatusCancelled {
+    return { discriminant: BallotStatusD.Cancelled };
   }
   public deserializeTally(_input: AbiInput): Tally {
     const option0: number = _input.readU32();
@@ -114,10 +131,9 @@ export class BallotContract {
     const input = AbiByteInput.createLittleEndian(bytes);
     return this.deserializeBallotState(input);
   }
-
 }
 export interface BallotState {
-  id: string;
+  organization: BlockchainAddress;
   administrator: BlockchainAddress;
   title: string;
   description: string;
@@ -125,7 +141,7 @@ export interface BallotState {
   startTime: BN;
   endTime: BN;
   status: Option<BallotStatus>;
-  nullifierHashes: string[];
+  voters: BlockchainAddress[];
   tally: Option<Tally>;
 }
 
@@ -172,7 +188,12 @@ export interface Tally {
   total: number;
 }
 
-export function initialize(options: string[], title: string, description: string): Buffer {
+export function initialize(
+  options: string[],
+  title: string,
+  description: string,
+  organization: BlockchainAddress
+): Buffer {
   return AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("ffffffff0f", "hex"));
     _out.writeI32(options.length);
@@ -181,6 +202,7 @@ export function initialize(options: string[], title: string, description: string
     }
     _out.writeString(title);
     _out.writeString(description);
+    _out.writeAddress(organization);
   });
 }
 
@@ -198,14 +220,14 @@ export function setVoteActive(): Buffer {
   });
 }
 
-export function castVote(nullifierHash: string): SecretInputBuilder<number> {
+export function castVote(): SecretInputBuilder<number> {
   const _publicRpc: Buffer = AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("40", "hex"));
-    _out.writeString(nullifierHash);
   });
-  const _secretInput = (secret_input_lambda: number): CompactBitArray => AbiBitOutput.serialize((_out) => {
-    _out.writeI8(secret_input_lambda);
-  });
+  const _secretInput = (secret_input_lambda: number): CompactBitArray =>
+    AbiBitOutput.serialize((_out) => {
+      _out.writeI8(secret_input_lambda);
+    });
   return new SecretInputBuilder<>(_publicRpc, _secretInput);
 }
 
@@ -232,4 +254,3 @@ export function deserializeState(
     ).deserializeBallotState(input);
   }
 }
-

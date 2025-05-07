@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Button } from "~/components/ui/button";
+import { connectMpcWalletClick } from "~/services/WalletIntegration";
 
 export function Welcome() {
   return (
@@ -21,7 +22,7 @@ export function Welcome() {
             </a>
           </p>
           <section className="flex flex-col gap-2 items-center">
-            <Link to="/organizations/new	">
+            <Link to="/organizations/new">
               <Button
                 className="w-fit text-sm xl:text-lg"
                 variant={"default"}
@@ -30,17 +31,14 @@ export function Welcome() {
                 Create your first organization
               </Button>
             </Link>
-            <p className="text-sm xl:text-lg font-medium tracking-tight pt-2">
-              <span className="text-stone-600">Already have an account?</span>{" "}
-              <a
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://partisiablockchain.com/"
-                className="text-black underline"
-              >
-                Sign in
-              </a>
-            </p>
+            <Button
+              onClick={() => {
+                console.log("clicked");
+                connectMpcWalletClick();
+              }}
+            >
+              Connect to Partisia Wallet
+            </Button>
           </section>
         </section>
       </section>

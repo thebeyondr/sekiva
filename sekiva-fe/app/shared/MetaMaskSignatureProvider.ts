@@ -1,4 +1,4 @@
-import {
+import type {
   SenderAuthentication,
   Signature,
 } from "@partisiablockchain/blockchain-api-transaction-client";
@@ -42,7 +42,10 @@ export const connectMetaMask = async (): Promise<SenderAuthentication> => {
 
     return {
       getAddress: () => userAddress,
-      sign: async (transactionPayload: Buffer, chainId: string): Promise<Signature> => {
+      sign: async (
+        transactionPayload: Buffer,
+        chainId: string
+      ): Promise<Signature> => {
         // Request signature from MetaMask
         return await metamask.request({
           method: "wallet_invokeSnap",

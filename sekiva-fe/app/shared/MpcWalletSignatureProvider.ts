@@ -1,8 +1,8 @@
-import PartisiaSdk from "partisia-blockchain-applications-sdk";
-import {
+import type {
   SenderAuthentication,
   Signature,
 } from "@partisiablockchain/blockchain-api-transaction-client";
+import PartisiaSdk from "partisia-sdk";
 
 /**
  * Initializes a new ConnectedWallet by connecting to Partisia Blockchain
@@ -28,7 +28,10 @@ export const connectMpcWallet = async (): Promise<SenderAuthentication> => {
         return {
           getAddress: () => connection.account.address,
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          sign: async (transactionPayload: Buffer, chainId: string): Promise<Signature> => {
+          sign: async (
+            transactionPayload: Buffer,
+            _chainId: string
+          ): Promise<Signature> => {
             // Ask the MPC wallet to sign the transaction.
             const res = await partisiaSdk.signMessage({
               payload: transactionPayload.toString("hex"),

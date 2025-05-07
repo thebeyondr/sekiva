@@ -1,9 +1,9 @@
 import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
-import "./App.css";
 import { useState } from "react";
 import { connectMpcWallet } from "./shared/MpcWalletSignatureProvider";
 import { setAccount, resetAccount } from "./AppState";
+import { Button } from "./components/ui/button";
 
 function App() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -38,9 +38,9 @@ function App() {
           <img src={reactLogo} className="logo react" alt="React logo" />
         </a>
       </div>
-      <h1>Vite + React</h1>
+      <h1 className="text-3xl font-bold underline">Vite + React</h1>
       <div className="card">
-        <button onClick={handleConnectWallet}>Connect Wallet</button>
+        <Button onClick={handleConnectWallet}>Connect Wallet</Button>
 
         {connectionStatus && (
           <p className="connection-status">{connectionStatus}</p>

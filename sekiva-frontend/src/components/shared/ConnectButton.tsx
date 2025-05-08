@@ -1,23 +1,21 @@
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
 
 const truncateAddress = (address: string) => {
   return address.slice(0, 6) + "..." + address.slice(-4);
 };
 
 const ConnectButton = () => {
-  const { walletAddress, isLoading, connect, disconnect, isAuthenticated } =
-    useAuth();
-
-  // Debug logging
-  useEffect(() => {
-    console.log("ConnectButton render state:", {
-      isAuthenticated,
-      walletAddress,
-      isLoading,
-    });
-  }, [isAuthenticated, walletAddress, isLoading]);
+  const {
+    walletAddress,
+    isConnecting,
+    isDisconnecting,
+    isConnected,
+    isDisconnected,
+    connect,
+    disconnect,
+    isAuthenticated,
+  } = useAuth();
 
   const handleConnect = () => {
     connect();
@@ -27,17 +25,22 @@ const ConnectButton = () => {
     disconnect();
   };
 
-  const label = isLoading
+  const label = isConnecting
     ? "connecting..."
-    : walletAddress
-      ? truncateAddress(walletAddress)
-      : "sign in";
+    : isDisconnecting
+      ? "disconnecting..."
+      : isConnected
+        ? truncateAddress(walletAddress ?? "")
+        : isDisconnected
+          ? "sign in"
+          : "loading...";
 
   const NotLoggedIn = (
-    <Button onClick={handleConnect} disabled={isLoading}>
+    <Button onClick={handleConnect} disabled={isConnecting}>
       {label}
     </Button>
   );
+
   const LoggedIn = (
     <div className="flex items-center gap-1">
       <p className="text-sm">Logged in as</p>
@@ -53,6 +56,7 @@ const ConnectButton = () => {
         size="icon"
         className="pl-2 font-bold"
         onClick={handleDisconnect}
+        disabled={isDisconnecting}
       >
         logout
       </Button>

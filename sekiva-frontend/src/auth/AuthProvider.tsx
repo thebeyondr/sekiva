@@ -8,7 +8,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedAddress = localStorage.getItem("walletAddress");
     return storedAddress ? storedAddress : null;
   });
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [isDisconnecting, setIsDisconnecting] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     // Initialize authentication state based on localStorage
     return localStorage.getItem("walletAddress") !== null;
@@ -57,9 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const reconnectWallet = async () => {
-    if (isLoading) return; // Prevent multiple reconnect attempts
+    if (isConnecting) return; // Prevent multiple reconnect attempts
 
-    setIsLoading(true);
+    setIsConnecting(true);
     try {
       console.log("Reconnecting wallet...");
       const userAccount = await connectMpcWallet();
@@ -82,15 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If reconnection fails, clear the stored address
       throw error; // Rethrow so we can handle in the delayed retry
     } finally {
-      setIsLoading(false);
+      setIsConnecting(false);
     }
   };
 
   const connect = async () => {
-    if (isLoading) return; // Prevent multiple connect attempts
+    if (isConnecting) return; // Prevent multiple connect attempts
 
     resetAccount();
-    setIsLoading(true);
+    setIsConnecting(true);
 
     try {
       console.log("Connecting to wallet...");
@@ -112,16 +113,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Wallet connection error:", error);
       disconnect();
     } finally {
-      setIsLoading(false);
+      setIsConnecting(false);
     }
   };
 
   const disconnect = () => {
     console.log("Disconnecting wallet");
+    setIsDisconnecting(true);
     resetAccount();
     setWalletAddress(null);
     setIsAuthenticated(false);
     localStorage.removeItem("walletAddress");
+    setIsDisconnecting(false);
   };
 
   // Debug output in development
@@ -130,17 +133,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Auth state updated:", {
         walletAddress,
         isAuthenticated,
-        isLoading,
+        isConnecting,
+        isDisconnecting,
+        isConnected: isConnected(),
+        isDisconnected: !isConnected(),
         storedAddress: localStorage.getItem("walletAddress"),
       });
     }
-  }, [walletAddress, isAuthenticated, isLoading]);
+  }, [walletAddress, isAuthenticated, isConnecting, isDisconnecting]);
 
   return (
     <AuthContext.Provider
       value={{
         walletAddress,
-        isLoading,
+        isConnecting,
+        isDisconnecting,
+        isConnected: isConnected(),
+        isDisconnected: !isConnected(),
         connect,
         disconnect,
         isAuthenticated,

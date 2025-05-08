@@ -3,7 +3,10 @@ import { createContext } from "react";
 // Define the context type
 export interface AuthContextType {
   walletAddress: string | null;
-  isLoading: boolean;
+  isConnecting: boolean;
+  isDisconnecting: boolean;
+  isConnected: boolean;
+  isDisconnected: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
   isAuthenticated: boolean;

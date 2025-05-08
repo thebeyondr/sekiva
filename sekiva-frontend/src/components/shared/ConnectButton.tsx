@@ -46,7 +46,7 @@ const ConnectButton = () => {
       <p className="text-sm">Logged in as</p>
       <p
         title={walletAddress ?? ""}
-        className="text-sm uppercase px-1 bg-amber-200 rounded-sm font-medium border border-stone-500"
+        className="text-sm uppercase px-1 bg-stone-50 rounded-sm font-medium border-[1.5px] border-stone-700"
       >
         {walletAddress ? truncateAddress(walletAddress) : ""}
       </p>

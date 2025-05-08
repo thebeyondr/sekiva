@@ -6,7 +6,7 @@ import { Button } from "./components/ui/button";
 function Home() {
   return (
     <div className="h-screen bg-sk-yellow-light">
-      <div className="container mx-auto max-w-[80vw]">
+      <div className="container mx-auto max-w-[1500px]">
         <NavBar />
         <section className="flex flex-col xl:flex-row gap-4 py-10">
           <div className="w-[30%] xl:w-[50%] h-full">

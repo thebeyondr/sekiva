@@ -1,21 +1,10 @@
 import NavBar from "@/components/shared/NavBar";
 import sekivaLogo from "@/assets/sekiva-logo-lg.webp";
-import { useState } from "react";
-import { FormStep } from "./NewCollectiveForm";
+import { FormSteps } from "./NewCollectiveForm";
 
 function NewCollective() {
-  const [step, setStep] = useState(1);
-
-  const handleNextStep = () => {
-    setStep(step + 1);
-  };
-
-  const handlePreviousStep = () => {
-    setStep(step - 1);
-  };
-
   return (
-    <div className="h-screen bg-sk-yellow-saturated">
+    <div className="min-h-screen bg-sk-yellow-saturated">
       <div className="container mx-auto max-w-[1500px]">
         <NavBar />
         <section className="container mx-auto max-w-3xl py-10">
@@ -40,11 +29,7 @@ function NewCollective() {
               </div>
               <div className="col-span-9 min-h-[500px]">
                 <section className="flex flex-col gap-4 max-w-md">
-                  <FormStep
-                    currStep={step}
-                    handleNextStep={handleNextStep}
-                    handlePreviousStep={handlePreviousStep}
-                  />
+                  <FormSteps />
                 </section>
               </div>
             </section>

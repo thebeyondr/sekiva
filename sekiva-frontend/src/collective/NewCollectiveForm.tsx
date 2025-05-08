@@ -1,59 +1,47 @@
 import { Button } from "@/components/ui/button";
 import { DetailsFields } from "./new/DetailsFields";
-import { collectiveFormOpts, membersCheck } from "./new/FormOptions";
+import { collectiveFormOpts } from "./new/FormOptions";
 import { MembersFields } from "./new/MembersFields";
 import { useCollectiveForm } from "./new/useCollectiveForm";
+import { useState } from "react";
 
-const FormStep = ({
-  currStep,
-  handleNextStep,
-  handlePreviousStep,
-}: {
-  currStep: number;
-  handleNextStep: () => void;
-  handlePreviousStep: () => void;
-}) => {
+const FormSteps = () => {
+  const [currStep, setCurrStep] = useState<"define" | "members">("define");
+
   const form = useCollectiveForm({
     ...collectiveFormOpts,
-    validators: {
-      onChange: ({ value }) => {
-        const errors = {
-          fields: {},
-        } as {
-          fields: Record<string, string>;
-        };
-        if (!value.name) {
-          errors.fields.name = "Tell us the name of your collective";
-        }
-        if (!value.description) {
-          errors.fields.description = "Tell us about your mission";
-        }
-        if (!value.members) {
-          errors.fields.members = membersCheck(value.members);
-        }
-        if (!value.profileImage) {
-          errors.fields.profileImage = "Add the URL of your profile image";
-        }
-        if (!value.bannerImage) {
-          errors.fields.bannerImage = "Add the URL of your banner image";
-        }
-        if (!value.website) {
-          errors.fields.website = "Add the URL of your website";
-        }
-        if (!value.discord) {
-          errors.fields.discord = "Add the URL of your Discord server";
-        }
-        if (!value.x) {
-          errors.fields.x = "Add the URL of your X account";
-        }
-
-        return errors;
-      },
-    },
     onSubmit: ({ value }) => {
       console.log(value);
     },
   });
+
+  // Define which fields belong to which step
+  const stepFields = {
+    define: ["name", "description", "website"],
+    members: ["members"],
+  };
+
+  const handleNextStep = () => {
+    // Get current step's fields
+    const currentFields = stepFields[currStep];
+
+    // Check if all current fields are valid
+    const currentFieldsValid =
+      currentFields.every(
+        (fieldName: string) =>
+          form.state.fieldMeta[fieldName as keyof typeof form.state.fieldMeta]
+            ?.errors.length === 0
+      ) && !form.state.isPristine;
+
+    if (currentFieldsValid) {
+      setCurrStep("members");
+    }
+  };
+
+  const handlePreviousStep = () => {
+    setCurrStep("define");
+  };
+
   return (
     <form
       onSubmit={(e) => {
@@ -61,7 +49,7 @@ const FormStep = ({
         form.handleSubmit();
       }}
     >
-      {currStep === 1 && (
+      {currStep === "define" && (
         <>
           <h1 className="text-2xl xl:text-4xl font-normal tracking-tighter py-3">
             Define your collective.
@@ -69,7 +57,7 @@ const FormStep = ({
           <DetailsFields form={form} />
         </>
       )}
-      {currStep === 2 && (
+      {currStep === "members" && (
         <>
           <h1 className="text-2xl xl:text-4xl font-normal tracking-tighter py-3">
             Add members.
@@ -78,12 +66,12 @@ const FormStep = ({
         </>
       )}
 
-      {currStep === 1 && (
+      {currStep === "define" && (
         <Button onClick={handleNextStep} className="w-full mt-4">
           next: add members
         </Button>
       )}
-      {currStep === 2 && (
+      {currStep === "members" && (
         <div className="flex gap-2">
           <Button onClick={handlePreviousStep} className="w-full mt-4">
             previous: add details
@@ -101,4 +89,4 @@ const FormStep = ({
   );
 };
 
-export { FormStep };
+export { FormSteps };

@@ -27,6 +27,7 @@ export default function TextField({
         <Input
           value={field.state.value}
           onChange={(e) => field.handleChange(e.target.value)}
+          onBlur={field.handleBlur}
           placeholder={placeholder}
           className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 ${
             field.state.meta.errors.length > 0
@@ -38,6 +39,7 @@ export default function TextField({
         <Textarea
           value={field.state.value}
           onChange={(e) => field.handleChange(e.target.value)}
+          onBlur={field.handleBlur}
           placeholder={placeholder}
           className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 ${
             field.state.meta.errors.length > 0 ? "border-red-500" : ""

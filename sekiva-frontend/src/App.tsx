@@ -3,7 +3,7 @@ import { connectMpcWallet } from "./shared/MpcWalletSignatureProvider";
 import { setAccount, resetAccount } from "./AppState";
 import { Button } from "./components/ui/button";
 import { Link } from "react-router";
-import NavBar from "./components/shared/NavBar";
+import NavBar from "@/components/shared/NavBar";
 
 function App() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);

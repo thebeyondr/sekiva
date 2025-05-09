@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { DetailsFields } from "./new/DetailsFields";
-import { collectiveFormOpts } from "./new/FormOptions";
-import { MembersFields } from "./new/MembersFields";
-import { useCollectiveForm } from "./new/useCollectiveForm";
+import { DetailsFields } from "./DetailsFields";
+import { collectiveFormOpts } from "./FormOptions";
+import { MembersFields } from "./MembersFields";
+import { useCollectiveForm } from "./useCollectiveForm";
 import { useState } from "react";
 
 const FormSteps = () => {

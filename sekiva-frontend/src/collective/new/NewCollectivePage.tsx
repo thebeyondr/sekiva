@@ -1,8 +1,8 @@
 import NavBar from "@/components/shared/NavBar";
 import sekivaLogo from "@/assets/sekiva-logo-lg.webp";
-import { FormSteps } from "./NewCollectiveForm";
+import { FormSteps } from "./FormSteps";
 
-function NewCollective() {
+function NewCollectivePage() {
   return (
     <div className="min-h-screen bg-sk-yellow-saturated">
       <div className="container mx-auto max-w-[1500px]">
@@ -40,4 +40,4 @@ function NewCollective() {
   );
 }
 
-export default NewCollective;
+export default NewCollectivePage;

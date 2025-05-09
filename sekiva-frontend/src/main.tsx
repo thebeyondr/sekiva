@@ -8,7 +8,7 @@ import MyCollectives from "@/collective/MyCollectives.tsx";
 import NewCollectivePage from "@/collective/new/NewCollectivePage.tsx";
 import CollectiveDetail from "@/collective/CollectiveDetails.tsx";
 import { AuthProvider } from "@/auth/AuthProvider.tsx";
-import NewBallot from "@/contracts/ballot/NewBallot.tsx";
+import NewBallot from "@/ballot/NewBallot.tsx";
 
 setupPolyfills();
 
@@ -22,9 +22,9 @@ createRoot(document.getElementById("root")!).render(
             <Route index element={<MyCollectives />} />
             <Route path="new" element={<NewCollectivePage />} />
             <Route path=":id" element={<CollectiveDetail />} />
-          </Route>
-          <Route path="ballots">
-            <Route path="new" element={<NewBallot />} />
+            <Route path=":id/ballots">
+              <Route path="new" element={<NewBallot />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

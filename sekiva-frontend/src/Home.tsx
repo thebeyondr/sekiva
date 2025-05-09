@@ -113,7 +113,7 @@ function Home() {
                 </strong>
                 <ul className="list-disc pl-5">
                   {factoryState.organizations.map((org, index) => (
-                    <li key={index}>
+                    <li key={index} className="flex items-center gap-2 mb-1">
                       <Link
                         to={`https://browser.testnet.partisiablockchain.com/contracts/${org.asString()}?tab=state`}
                         target="_blank"
@@ -121,6 +121,14 @@ function Home() {
                       >
                         {org.asString()}
                       </Link>
+                      {index === 0 && (
+                        <Link
+                          to={`/collectives/${org.asString()}`}
+                          className="bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600"
+                        >
+                          View Collective
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>

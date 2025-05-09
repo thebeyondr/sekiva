@@ -55,23 +55,6 @@ pub fn initialize(
 ) -> OrganizationState {
     assert_ne!(name, "", "Please name the organization.");
     assert_ne!(description, "", "Please describe the organization.");
-    assert_ne!(
-        profile_image, "",
-        "Please add a profile image for the organization."
-    );
-    assert_ne!(
-        banner_image, "",
-        "Please add a banner image for the organization."
-    );
-    assert_ne!(website, "", "Please add a website for the organization.");
-    assert_ne!(
-        x_account, "",
-        "Please add an X account for the organization."
-    );
-    assert_ne!(
-        discord_server, "",
-        "Please add a Discord server for the organization."
-    );
 
     let mut members = SortedVecSet::new();
     members.insert(ctx.sender);

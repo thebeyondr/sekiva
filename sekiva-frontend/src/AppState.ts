@@ -18,11 +18,11 @@
 
 // import { Client, RealZkClient } from "@partisiablockchain/zk-client";
 import { ShardedClient } from "./client/ShardedClient";
-// import { AverageSalaryApi } from "../../average-salary-frontend/src/main/contract/AverageSalaryApi";
 import {
-  // BlockchainTransactionClient,
+  BlockchainTransactionClient,
   SenderAuthentication,
 } from "@partisiablockchain/blockchain-api-transaction-client";
+import { SekivaFactoryApi } from "./contracts/factory/api";
 
 export const TESTNET_URL = "https://node1.testnet.partisiablockchain.com";
 
@@ -34,11 +34,11 @@ export const CLIENT = new ShardedClient(TESTNET_URL, [
 
 let contractAddress: string | undefined;
 let currentAccount: SenderAuthentication | undefined;
-// let averageApi: AverageSalaryApi | undefined;
+let factoryApi: SekivaFactoryApi | undefined;
 
 export const setAccount = (account: SenderAuthentication | undefined) => {
   currentAccount = account;
-  // setAverageApi();
+  initializeFactoryApi();
 };
 
 export const resetAccount = () => {
@@ -49,26 +49,20 @@ export const isConnected = () => {
   return currentAccount != null;
 };
 
-// export const setAverageApi = () => {
-//   let transactionClient = undefined;
-//   let zkClient = undefined;
-//   if (currentAccount != undefined && contractAddress != null) {
-//     transactionClient = BlockchainTransactionClient.create(
-//       "https://node1.testnet.partisiablockchain.com",
-//       currentAccount
-//     );
-//     zkClient = RealZkClient.create(contractAddress, new Client(TESTNET_URL));
-//     averageApi = new AverageSalaryApi(
-//       transactionClient,
-//       zkClient,
-//       currentAccount.getAddress()
-//     );
-//   }
-// };
+export const FactoryApi = () => {
+  let transactionClient = undefined;
+  if (currentAccount != undefined) {
+    transactionClient = BlockchainTransactionClient.create(
+      "https://node1.testnet.partisiablockchain.com",
+      currentAccount
+    );
+  }
+  return new SekivaFactoryApi(CLIENT, transactionClient);
+};
 
-// export const getAverageApi = () => {
-//   return averageApi;
-// };
+export const getFactoryApi = () => {
+  return factoryApi;
+};
 
 export const getContractAddress = () => {
   return contractAddress;
@@ -76,5 +70,23 @@ export const getContractAddress = () => {
 
 export const setContractAddress = (address: string) => {
   contractAddress = address;
-  // setAverageApi();
+  initializeFactoryApi();
 };
+
+function initializeFactoryApi() {
+  if (currentAccount && contractAddress) {
+    try {
+      const transactionClient = BlockchainTransactionClient.create(
+        TESTNET_URL,
+        currentAccount
+      );
+
+      factoryApi = new SekivaFactoryApi(CLIENT, transactionClient);
+    } catch (error) {
+      console.error("Error updating factory API:", error);
+      factoryApi = undefined;
+    }
+  } else {
+    factoryApi = undefined;
+  }
+}

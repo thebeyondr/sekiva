@@ -41,6 +41,10 @@ export const setAccount = (account: SenderAuthentication | undefined) => {
   initializeFactoryApi();
 };
 
+export const getAccount = () => {
+  return currentAccount;
+};
+
 export const resetAccount = () => {
   currentAccount = undefined;
 };
@@ -53,7 +57,7 @@ export const FactoryApi = () => {
   let transactionClient = undefined;
   if (currentAccount != undefined) {
     transactionClient = BlockchainTransactionClient.create(
-      "https://node1.testnet.partisiablockchain.com",
+      TESTNET_URL,
       currentAccount
     );
   }

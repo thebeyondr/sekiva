@@ -3,23 +3,46 @@ import {
   Signature,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import PartisiaSdk from "partisia-sdk";
+import { PartisiaWalletSession } from "@/auth/SessionManager";
+
+/**
+ * Connection parameters for Partisia SDK
+ */
+interface ConnectParams {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  permissions: any[]; // Using any for compatibility with PartisiaSdk
+  dappName: string;
+  chainId: string;
+  reconnect?: boolean;
+  tabId?: number;
+}
 
 /**
  * Initializes a new ConnectedWallet by connecting to Partisia Blockchain
  * Applications MPC wallet.
  *
- * Does not take any arguments as everything is automatically determined from the
- * environment. An error is thrown if the MPC Wallet extension is not installed.
+ * @param sessionData Optional session data for reconnection
  */
-export const connectMpcWallet = async (): Promise<SenderAuthentication> => {
+export const connectMpcWallet = async (
+  sessionData?: PartisiaWalletSession
+): Promise<SenderAuthentication> => {
   const partisiaSdk = new PartisiaSdk();
+
+  // Configure connection parameters
+  const connectParams: ConnectParams = {
+    permissions: ["sign"],
+    dappName: "Sekiva",
+    chainId: "Partisia Blockchain Testnet",
+  };
+
+  // Add reconnection parameters if available from session
+  if (sessionData?.connection?.popupWindow) {
+    connectParams.reconnect = true;
+    connectParams.tabId = sessionData.connection.popupWindow.tabId;
+  }
+
   return partisiaSdk
-    .connect({
-      // eslint-disable-next-line
-      permissions: ["sign" as any],
-      dappName: "Wallet integration demo",
-      chainId: "Partisia Blockchain Testnet",
-    })
+    .connect(connectParams)
     .then(() => {
       const connection = partisiaSdk.connection;
       if (connection != null) {
@@ -27,8 +50,7 @@ export const connectMpcWallet = async (): Promise<SenderAuthentication> => {
         // in state.
         return {
           getAddress: () => connection.account.address,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          sign: async (transactionPayload: Buffer, _chainId: string): Promise<Signature> => {
+          sign: async (transactionPayload: Buffer): Promise<Signature> => {
             // Ask the MPC wallet to sign the transaction.
             const res = await partisiaSdk.signMessage({
               payload: transactionPayload.toString("hex"),

@@ -35,19 +35,22 @@ export class PbcClient {
     address: string,
     withState = true
   ): Promise<ContractCore | ContractData<T> | undefined> {
+    if (this.host === undefined) {
+      throw new Error("Host not set");
+    }
     const query = "?requireContractState=" + withState;
-    return getRequest(this.host + "/blockchain/contracts/" + address + query);
+    return getRequest(this.host + "/chain/contracts/" + address + query);
   }
 
   public getAccountData(address: string): Promise<AccountData | undefined> {
-    return getRequest<AccountData>(this.host + "/blockchain/account/" + address).then(
-      (response?: AccountData) => {
-        if (response != null) {
-          response.address = address;
-        }
-        return response;
+    return getRequest<AccountData>(
+      this.host + "/chain/account/" + address
+    ).then((response?: AccountData) => {
+      if (response != null) {
+        response.address = address;
       }
-    );
+      return response;
+    });
   }
 
   public getExecutedTransaction(
@@ -55,6 +58,6 @@ export class PbcClient {
     requireFinal = true
   ): Promise<ExecutedTransactionDto | undefined> {
     const query = "?requireFinal=" + requireFinal;
-    return getRequest(this.host + "/blockchain/transaction/" + identifier + query);
+    return getRequest(this.host + "/chain/transaction/" + identifier + query);
   }
 }

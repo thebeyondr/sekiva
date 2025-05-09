@@ -28,7 +28,8 @@ import {
   TransactionPointer,
 } from "./TransactionData";
 
-export interface ShardSuccessfulTransactionResponse extends PutTransactionWasSuccessful {
+export interface ShardSuccessfulTransactionResponse
+  extends PutTransactionWasSuccessful {
   shard: ShardId;
 }
 
@@ -86,11 +87,26 @@ export class ShardedClient {
     withState?: boolean
   ): Promise<ContractData<T> | ContractCore | undefined> {
     const requireState = withState === undefined || withState;
-    if (requireState) {
-      return this.clientForAddress(address).getContractData(address, requireState);
-    } else {
-      return this.clientForAddress(address).getContractData(address, requireState);
-    }
+
+    const url = `${this.baseUrl}/chain/contracts/${address}?requireContractState=${requireState}`;
+
+    console.log(`Fetching contract data from: ${url}`);
+
+    // Use getRequest from BaseClient
+    return fetch(url)
+      .then((response) => {
+        if (!response.ok) {
+          console.error(
+            `Failed to fetch contract data: ${response.status} ${response.statusText}`
+          );
+          return undefined;
+        }
+        return response.json();
+      })
+      .catch((error) => {
+        console.error(`Error fetching contract data: ${error}`);
+        return undefined;
+      });
   }
 
   public getExecutedTransaction(
@@ -98,10 +114,15 @@ export class ShardedClient {
     identifier: string,
     requireFinal?: boolean
   ): Promise<ExecutedTransactionDto | undefined> {
-    return this.getClient(shard).getExecutedTransaction(identifier, requireFinal);
+    return this.getClient(shard).getExecutedTransaction(
+      identifier,
+      requireFinal
+    );
   }
 
-  public putTransaction(transaction: Buffer): Promise<TransactionPointer | undefined> {
+  public putTransaction(
+    transaction: Buffer
+  ): Promise<TransactionPointer | undefined> {
     const byteJson = { payload: transaction.toString("base64") };
     return putRequest(this.baseUrl + "/chain/transactions", byteJson);
   }

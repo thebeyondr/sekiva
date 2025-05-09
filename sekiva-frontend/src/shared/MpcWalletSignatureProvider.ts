@@ -3,81 +3,76 @@ import {
   Signature,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import PartisiaSdk from "partisia-sdk";
-import { PartisiaWalletSession } from "@/auth/SessionManager";
+import { SessionManager } from "@/auth/SessionManager";
 
 /**
- * Connection parameters for Partisia SDK
- */
-interface ConnectParams {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  permissions: any[]; // Using any for compatibility with PartisiaSdk
-  dappName: string;
-  chainId: string;
-  reconnect?: boolean;
-  tabId?: number;
-}
-
-/**
- * Initializes a new ConnectedWallet by connecting to Partisia Blockchain
- * Applications MPC wallet.
+ * Initializes a connection to the Partisia Blockchain MPC wallet.
  *
- * @param sessionData Optional session data for reconnection
+ * This leverages the Partisia SDK to establish a secure end-to-end encrypted
+ * channel between the dApp and the wallet.
+ *
+ * @returns A SenderAuthentication object that can be used for transactions
  */
-export const connectMpcWallet = async (
-  sessionData?: PartisiaWalletSession
-): Promise<SenderAuthentication> => {
+export const connectMpcWallet = async (): Promise<SenderAuthentication> => {
   const partisiaSdk = new PartisiaSdk();
 
   // Configure connection parameters
-  const connectParams: ConnectParams = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const connectParams: any = {
     permissions: ["sign"],
     dappName: "Sekiva",
     chainId: "Partisia Blockchain Testnet",
   };
 
-  // Add reconnection parameters if available from session
-  if (sessionData?.connection?.popupWindow) {
-    connectParams.reconnect = true;
-    connectParams.tabId = sessionData.connection.popupWindow.tabId;
-  }
+  try {
+    console.log("Connecting to Partisia wallet...");
 
-  return partisiaSdk
-    .connect(connectParams)
-    .then(() => {
-      const connection = partisiaSdk.connection;
-      if (connection != null) {
-        // User connection was successful. Use the connection to build up a connected wallet
-        // in state.
-        return {
-          getAddress: () => connection.account.address,
-          sign: async (transactionPayload: Buffer): Promise<Signature> => {
-            // Ask the MPC wallet to sign the transaction.
-            const res = await partisiaSdk.signMessage({
-              payload: transactionPayload.toString("hex"),
-              payloadType: "hex",
-              dontBroadcast: true,
-            });
-            return res.signature;
-          },
-        };
-      } else {
-        throw new Error("Unable to establish connection to MPC wallet");
+    // Connect to the wallet
+    await partisiaSdk.connect(connectParams);
+    console.log("Connect result:", partisiaSdk);
+
+    const connection = partisiaSdk.connection;
+    if (!connection) {
+      throw new Error("Unable to establish connection to MPC wallet");
+    }
+
+    console.log("Connected to wallet, account:", connection.account);
+
+    // Save connection to sessionStorage
+    SessionManager.saveWalletConnectionFromSdk(connection);
+
+    // Create a SenderAuthentication object for transaction signing
+    return {
+      getAddress: () => connection.account.address,
+      sign: async (transactionPayload: Buffer): Promise<Signature> => {
+        // Ask the MPC wallet to sign the transaction
+        const res = await partisiaSdk.signMessage({
+          payload: transactionPayload.toString("hex"),
+          payloadType: "hex",
+          dontBroadcast: true,
+        });
+        return res.signature;
+      },
+    };
+  } catch (error) {
+    // The SDK already provides generic errors, but we can make them
+    // more friendly for our specific dApp context
+    if (error instanceof Error) {
+      if (error.message === "Extension not Found") {
+        throw new Error(
+          "Partisia Wallet Extension not found. Please install it to continue."
+        );
+      } else if (
+        error.message === "user closed confirm window" ||
+        error.message === "user rejected"
+      ) {
+        throw new Error("Wallet connection was cancelled by user.");
       }
-    })
-    .catch((error) => {
-      // Something went wrong with the connection.
-      if (error instanceof Error) {
-        if (error.message === "Extension not Found") {
-          throw new Error("Partisia Wallet Extension not found.");
-        } else if (error.message === "user closed confirm window") {
-          throw new Error("Sign in using MPC wallet was cancelled");
-        } else if (error.message === "user rejected") {
-          throw new Error("Sign in using MPC wallet was rejected");
-        } else {
-          throw error;
-        }
-      } else {
-        throw new Error(error);
-      }
-    });
+
+      // For all other errors, just pass them through
+      throw error;
+    }
+
+    throw new Error("Unknown error connecting to wallet");
+  }
 };

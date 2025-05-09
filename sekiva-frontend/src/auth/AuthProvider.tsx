@@ -2,19 +2,18 @@ import { useState, useEffect, ReactNode } from "react";
 import { connectMpcWallet } from "@/shared/MpcWalletSignatureProvider";
 import { resetAccount, setAccount, isConnected } from "@/AppState";
 import { AuthContext } from "@/auth/AuthContext";
-import { SessionManager, PartisiaWalletSession } from "./SessionManager";
+import { SessionManager } from "./SessionManager";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(() => {
-    // Initialize from session instead of just localStorage
-    const session = SessionManager.getSession();
-    return session?.connection?.account?.address || null;
+    // Initialize from Partisia wallet session if available
+    return SessionManager.getWalletAddress();
   });
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [isDisconnecting, setIsDisconnecting] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    // Initialize authentication state based on session
-    return SessionManager.getSession() !== null;
+    // Initialize authentication state based on wallet connection
+    return SessionManager.hasWalletConnection();
   });
 
   // Effect to reconnect wallet when the component mounts
@@ -23,31 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Skip if already connected
       if (isConnected()) return;
 
-      // First check if Partisia browser has a connection
-      const partiSession = SessionManager.checkForPartiWalletConnection();
-      if (partiSession?.connection?.account?.address) {
-        try {
-          await reconnectFromSession(partiSession);
-          return;
-        } catch (error) {
-          console.error(
-            "Failed to reconnect from Parti browser session:",
-            error
+      try {
+        // First check if we have partiWalletConnection in sessionStorage
+        const session = SessionManager.getPartiWalletSession();
+        if (session?.connection?.account?.address) {
+          // If we have a session, we can use it to set up the wallet state
+          // without prompting the user again for connection
+          setWalletAddress(session.connection.account.address);
+          setIsAuthenticated(true);
+          console.log(
+            "Restored session from storage, address:",
+            session.connection.account.address
           );
-        }
-      }
 
-      // Fall back to our own session storage
-      const savedSession = SessionManager.getSession();
-      if (savedSession?.connection?.account?.address) {
-        try {
-          await reconnectFromSession(savedSession);
-        } catch (error) {
-          console.error("Final reconnection attempt failed:", error);
-          // Clear invalid session
-          SessionManager.clearSession();
-          disconnect();
+          // No need to prompt the user again for connection
+          // Just set up our local state based on the session
         }
+      } catch (error) {
+        console.error("Failed to reconnect from stored session:", error);
       }
     };
 
@@ -60,59 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const reconnectFromSession = async (session: PartisiaWalletSession) => {
-    if (isConnecting) return false; // Prevent multiple reconnect attempts
-
-    setIsConnecting(true);
-    try {
-      console.log("Reconnecting wallet...");
-      const userAccount = await connectMpcWallet(session);
-
-      if (userAccount) {
-        console.log("Wallet reconnected successfully");
-        setAccount(userAccount);
-
-        // Verify the address from the account matches session
-        const address = userAccount.getAddress().trim();
-
-        if (address === session.connection.account.address) {
-          setWalletAddress(address);
-          setIsAuthenticated(true);
-
-          // Update session with fresh timestamp
-          SessionManager.saveSession({
-            ...session,
-            lastConnected: Date.now(),
-          });
-
-          return true;
-        } else {
-          console.error("Address mismatch during reconnection");
-          throw new Error("Address mismatch during reconnection");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to reconnect wallet:", error);
-      throw error;
-    } finally {
-      setIsConnecting(false);
-    }
-
-    return false;
-  };
-
   const connect = async () => {
-    if (isConnecting) return; // Prevent multiple connect attempts
+    if (isConnecting) return;
 
     resetAccount();
     setIsConnecting(true);
 
     try {
-      // Check for existing Partisia browser connection
-      const partiSession = SessionManager.checkForPartiWalletConnection();
-
       console.log("Connecting to wallet...");
-      const userAccount = await connectMpcWallet(partiSession || undefined);
+
+      const userAccount = await connectMpcWallet();
 
       if (userAccount) {
         console.log("Wallet connected successfully");
@@ -121,22 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const address = userAccount.getAddress().trim();
         setWalletAddress(address);
         setIsAuthenticated(true);
-
-        // Create and save session data
-        const sessionData: PartisiaWalletSession = {
-          walletType: partiSession?.walletType || "parti",
-          connection: partiSession?.connection || {
-            account: {
-              address,
-              pub: "", // We'd need to get this from the wallet
-              shard_id: 1, // Default shard
-            },
-          },
-          lastConnected: Date.now(),
-        };
-
-        // Save to storage
-        SessionManager.saveSession(sessionData);
       }
     } catch (error: unknown) {
       console.error("Wallet connection error:", error);
@@ -149,14 +82,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const disconnect = () => {
     console.log("Disconnecting wallet");
     setIsDisconnecting(true);
-    resetAccount();
-    setWalletAddress(null);
-    setIsAuthenticated(false);
 
-    // Clear session data
-    SessionManager.clearSession();
+    try {
+      // Clear the state
+      resetAccount();
+      setWalletAddress(null);
+      setIsAuthenticated(false);
 
-    setIsDisconnecting(false);
+      // The Partisia SDK does not have an explicit disconnect method
+      // It only requires clearing the session from storage
+      SessionManager.clearWalletConnection();
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
 
   // Debug output in development
@@ -169,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDisconnecting,
         isConnected: isConnected(),
         isDisconnected: !isConnected(),
-        session: SessionManager.getSession(),
+        walletSession: SessionManager.getPartiWalletSession(),
       });
     }
   }, [walletAddress, isAuthenticated, isConnecting, isDisconnecting]);

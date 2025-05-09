@@ -7,116 +7,151 @@ export interface PartisiaWalletSession {
     account: {
       address: string;
       pub: string;
-      shard_id: number;
     };
     popupWindow?: {
       tabId: number;
       box: string;
     };
   };
-  lastConnected: number; // timestamp
 }
 
 /**
- * Service for managing authentication sessions
+ * Minimal service for managing Partisia wallet sessions
  *
- * Following blockchain wallet standards, this manager only uses sessionStorage
- * and doesn't persist sessions beyond the current browser session.
+ * Focused on integrating directly with Partisia Wallet SDK's session handling
  */
 export class SessionManager {
-  private static SESSION_KEY = "sekivaSession";
-  private static SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  // Partisia Wallet stores these keys in sessionStorage
+  private static PARTI_WALLET_KEY = "partiWalletConnection";
+  private static WALLET_TYPE_KEY = "walletType";
+  private static PARTI_WALLET_TYPE = "parti";
 
   /**
-   * Store session data in sessionStorage
+   * Check for active Partisia browser wallet connection
+   *
+   * @returns The wallet session if available, null otherwise
    */
-  static saveSession(session: PartisiaWalletSession): void {
-    // Only store in sessionStorage following blockchain wallet standards
-    sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+  static getPartiWalletSession(): PartisiaWalletSession | null {
+    try {
+      const walletType = sessionStorage.getItem(this.WALLET_TYPE_KEY);
+      const walletData = sessionStorage.getItem(this.PARTI_WALLET_KEY);
+
+      if (walletType !== this.PARTI_WALLET_TYPE || !walletData) {
+        return null;
+      }
+
+      const connection = JSON.parse(walletData);
+      return {
+        walletType: this.PARTI_WALLET_TYPE,
+        connection,
+      };
+    } catch (error) {
+      console.error("Error retrieving Partisia wallet session:", error);
+      return null;
+    }
   }
 
   /**
-   * Get session data with validation
+   * Save wallet connection information to sessionStorage from SDK
+   * This saves the complete connection object from the SDK
+   *
+   * @param sdkConnection Complete SDK connection object
    */
-  static getSession(): PartisiaWalletSession | null {
-    const sessionData = sessionStorage.getItem(this.SESSION_KEY);
-    if (!sessionData) return null;
-
-    try {
-      const session = JSON.parse(sessionData);
-      if (this.isSessionValid(session)) {
-        return session;
-      } else {
-        // Clear invalid session
-        this.clearSession();
-      }
-    } catch (error) {
-      console.error("Error parsing session data", error);
-      this.clearSession();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static saveWalletConnectionFromSdk(sdkConnection: any): void {
+    if (
+      !sdkConnection ||
+      !sdkConnection.account ||
+      !sdkConnection.account.address
+    ) {
+      console.error("Invalid SDK connection object", sdkConnection);
+      return;
     }
 
-    return null;
-  }
-
-  /**
-   * Check for Partisia browser wallet connection in sessionStorage
-   */
-  static checkForPartiWalletConnection(): PartisiaWalletSession | null {
-    try {
-      const partiWalletData = sessionStorage.getItem("partiWalletConnection");
-      const walletType = sessionStorage.getItem("walletType");
-
-      if (partiWalletData && walletType === "parti") {
-        const connection = JSON.parse(partiWalletData);
-
-        // Create a session object
-        const session: PartisiaWalletSession = {
-          walletType: "parti",
-          connection,
-          lastConnected: Date.now(),
-        };
-
-        // Save this session
-        this.saveSession(session);
-        return session;
-      }
-    } catch (error) {
-      console.error("Error checking for Parti wallet connection:", error);
-    }
-
-    return null;
-  }
-
-  /**
-   * Clear session data
-   */
-  static clearSession(): void {
-    sessionStorage.removeItem(this.SESSION_KEY);
-  }
-
-  /**
-   * Check if a session is still valid
-   */
-  static isSessionValid(session: PartisiaWalletSession): boolean {
-    // Check if session is expired
-    const now = Date.now();
-
-    return (
-      !!session &&
-      !!session.lastConnected &&
-      !!session.connection?.account?.address &&
-      now - session.lastConnected < this.SESSION_TIMEOUT
+    console.log(
+      `Saving wallet connection from SDK for address: ${sdkConnection.account.address}`
     );
+
+    // Save to sessionStorage with the same keys used by Partisia Wallet
+    sessionStorage.setItem(
+      this.PARTI_WALLET_KEY,
+      JSON.stringify(sdkConnection)
+    );
+    sessionStorage.setItem(this.WALLET_TYPE_KEY, this.PARTI_WALLET_TYPE);
+
+    // Verify it was saved correctly
+    try {
+      const savedData = sessionStorage.getItem(this.PARTI_WALLET_KEY);
+      console.log(
+        "Saved wallet connection:",
+        savedData ? JSON.parse(savedData) : null
+      );
+    } catch (error) {
+      console.error("Failed to verify saved connection data", error);
+    }
   }
 
   /**
-   * Update session's timestamp
+   * Save wallet connection information to sessionStorage manually
+   * Use this as a fallback when the SDK connection is not available
+   *
+   * @param address Wallet address
+   * @param pubKey Optional public key
    */
-  static refreshSession(): void {
-    const session = this.getSession();
-    if (session) {
-      session.lastConnected = Date.now();
-      this.saveSession(session);
+  static saveWalletConnection(address: string, pubKey: string = ""): void {
+    if (!address) return;
+
+    console.log(`Saving wallet connection for address: ${address}`);
+
+    // Create connection object in the exact format expected by Partisia SDK
+    const connection = {
+      account: {
+        address,
+        pub: pubKey,
+      },
+    };
+
+    // Save to sessionStorage with the same keys used by Partisia Wallet
+    sessionStorage.setItem(this.PARTI_WALLET_KEY, JSON.stringify(connection));
+    sessionStorage.setItem(this.WALLET_TYPE_KEY, this.PARTI_WALLET_TYPE);
+
+    // Verify it was saved correctly
+    try {
+      const savedData = sessionStorage.getItem(this.PARTI_WALLET_KEY);
+      console.log(
+        "Saved wallet connection:",
+        savedData ? JSON.parse(savedData) : null
+      );
+    } catch (error) {
+      console.error("Failed to verify saved connection data", error);
     }
+  }
+
+  /**
+   * Check if the user has a valid wallet connection
+   *
+   * @returns true if the user has a connected wallet
+   */
+  static hasWalletConnection(): boolean {
+    return this.getPartiWalletSession() !== null;
+  }
+
+  /**
+   * Get the connected wallet address if available
+   *
+   * @returns The wallet address or null if not connected
+   */
+  static getWalletAddress(): string | null {
+    const session = this.getPartiWalletSession();
+    return session?.connection?.account?.address || null;
+  }
+
+  /**
+   * Clear wallet connection
+   */
+  static clearWalletConnection(): void {
+    console.log("Clearing wallet connection from sessionStorage");
+    sessionStorage.removeItem(this.PARTI_WALLET_KEY);
+    sessionStorage.removeItem(this.WALLET_TYPE_KEY);
   }
 }

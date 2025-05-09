@@ -19,6 +19,9 @@ pub struct OrganizationState {
     description: String,
     profile_image: String,
     banner_image: String,
+    website: String,
+    x_account: String,
+    discord_server: String,
     ballots: SortedVecSet<Address>,
 }
 
@@ -46,6 +49,9 @@ pub fn initialize(
     description: String,
     profile_image: String,
     banner_image: String,
+    website: String,
+    x_account: String,
+    discord_server: String,
 ) -> OrganizationState {
     assert_ne!(name, "", "Please name the organization.");
     assert_ne!(description, "", "Please describe the organization.");
@@ -56,6 +62,15 @@ pub fn initialize(
     assert_ne!(
         banner_image, "",
         "Please add a banner image for the organization."
+    );
+    assert_ne!(website, "", "Please add a website for the organization.");
+    assert_ne!(
+        x_account, "",
+        "Please add an X account for the organization."
+    );
+    assert_ne!(
+        discord_server, "",
+        "Please add a Discord server for the organization."
     );
 
     let mut members = SortedVecSet::new();
@@ -72,6 +87,9 @@ pub fn initialize(
         description,
         profile_image,
         banner_image,
+        website,
+        x_account,
+        discord_server,
     }
 }
 
@@ -111,6 +129,85 @@ pub fn add_administrator(
 
     OrganizationState {
         administrators,
+        ..state
+    }
+}
+
+/// Update organization metadata (multiple fields at once).
+///
+/// # Arguments
+///
+/// * `ctx` - the contract context containing information about the sender and the blockchain.
+/// * `state` - the current state of the organization.
+/// * `name` - the new name of the organization (optional).
+/// * `description` - the new description of the organization (optional).
+/// * `profile_image` - the new profile image of the organization (optional).
+/// * `banner_image` - the new banner image of the organization (optional).
+/// * `website` - the new website of the organization (optional).
+/// * `x_account` - the new X account of the organization (optional).
+/// * `discord_server` - the new Discord server of the organization (optional).
+///
+/// # Returns
+///
+/// The updated organization state reflecting the new metadata.
+///
+#[action(shortname = 0x08)]
+pub fn update_metadata(
+    ctx: ContractContext,
+    state: OrganizationState,
+    name: Option<String>,
+    description: Option<String>,
+    profile_image: Option<String>,
+    banner_image: Option<String>,
+    website: Option<String>,
+    x_account: Option<String>,
+    discord_server: Option<String>,
+) -> OrganizationState {
+    assert!(
+        state.administrators.contains(&ctx.sender),
+        "Only administrators can update organization metadata."
+    );
+
+    if let Some(ref name_val) = name {
+        assert_ne!(name_val, "", "Organization name cannot be empty.");
+    }
+
+    if let Some(ref description_val) = description {
+        assert_ne!(
+            description_val, "",
+            "Organization description cannot be empty."
+        );
+    }
+
+    if let Some(ref profile_image_val) = profile_image {
+        assert_ne!(profile_image_val, "", "Profile image URL cannot be empty.");
+    }
+
+    if let Some(ref banner_image_val) = banner_image {
+        assert_ne!(banner_image_val, "", "Banner image URL cannot be empty.");
+    }
+
+    if let Some(ref website_val) = website {
+        assert_ne!(website_val, "", "Website URL cannot be empty.");
+    }
+
+    if let Some(ref x_account_val) = x_account {
+        assert_ne!(x_account_val, "", "X account cannot be empty.");
+    }
+
+    if let Some(ref discord_server_val) = discord_server {
+        assert_ne!(discord_server_val, "", "Discord server cannot be empty.");
+    }
+
+    // Apply updates only for fields that were provided
+    OrganizationState {
+        name: name.unwrap_or(state.name),
+        description: description.unwrap_or(state.description),
+        profile_image: profile_image.unwrap_or(state.profile_image),
+        banner_image: banner_image.unwrap_or(state.banner_image),
+        website: website.unwrap_or(state.website),
+        x_account: x_account.unwrap_or(state.x_account),
+        discord_server: discord_server.unwrap_or(state.discord_server),
         ..state
     }
 }

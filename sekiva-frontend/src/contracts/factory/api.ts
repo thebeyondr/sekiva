@@ -418,7 +418,7 @@ export class SekivaFactoryApi {
     // Then send the payload via the transaction API.
     return this.transactionClient.signAndSend(
       { address: this.contractAddress.asString(), rpc },
-      1_000_000
+      2_000_000
     );
   };
 

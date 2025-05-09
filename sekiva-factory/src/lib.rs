@@ -65,6 +65,9 @@ struct OrganizationInfo {
     description: String,
     profile_image: String,
     banner_image: String,
+    x_url: String,
+    discord_url: String,
+    website_url: String,
 }
 
 #[state]
@@ -134,10 +137,7 @@ pub fn initialize(
 fn deploy_organization(
     ctx: ContractContext,
     state: SekivaFactoryState,
-    name: String,
-    description: String,
-    profile_image: String,
-    banner_image: String,
+    org_info: OrganizationInfo,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     let org_contract_address = Address {
         address_type: AddressType::PublicContract,
@@ -151,10 +151,13 @@ fn deploy_organization(
         .argument(state.organization_contract_wasm.clone())
         .argument(state.organization_contract_abi.clone())
         .argument(create_org_init_data(
-            name,
-            description,
-            profile_image,
-            banner_image,
+            org_info.name,
+            org_info.description,
+            org_info.profile_image,
+            org_info.banner_image,
+            org_info.x_url,
+            org_info.discord_url,
+            org_info.website_url,
         ))
         .argument(BINDER_ID)
         .done();
@@ -329,12 +332,18 @@ fn create_org_init_data(
     description: String,
     profile_image: String,
     banner_image: String,
+    x_url: String,
+    discord_url: String,
+    website_url: String,
 ) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0xff, 0xff, 0xff, 0xff, 0x0f];
     WriteRPC::rpc_write_to(&name, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&description, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&profile_image, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&banner_image, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&x_url, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&discord_url, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&website_url, &mut bytes).unwrap();
     bytes
 }
 

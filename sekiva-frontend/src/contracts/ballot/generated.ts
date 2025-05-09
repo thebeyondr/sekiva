@@ -23,10 +23,10 @@ import {
 } from "@partisiablockchain/abi-client";
 
 type Option<K> = K | undefined;
-export class Ballot {
+export class generated {
   private readonly _client: BlockchainStateClient | undefined;
   private readonly _address: BlockchainAddress | undefined;
-  
+
   public constructor(
     client: BlockchainStateClient | undefined,
     address: BlockchainAddress | undefined
@@ -65,7 +65,18 @@ export class Ballot {
       const tally_option: Tally = this.deserializeTally(_input);
       tally = tally_option;
     }
-    return { organization, administrator, title, description, options, startTime, endTime, status, voters, tally };
+    return {
+      organization,
+      administrator,
+      title,
+      description,
+      options,
+      startTime,
+      endTime,
+      status,
+      voters,
+      tally,
+    };
   }
   public deserializeBallotStatus(_input: AbiInput): BallotStatus {
     const discriminant = _input.readU8();
@@ -83,19 +94,25 @@ export class Ballot {
     throw new Error("Unknown discriminant: " + discriminant);
   }
   public deserializeBallotStatusCreated(_input: AbiInput): BallotStatusCreated {
-    return { discriminant: BallotStatusD.Created,  };
+    return { discriminant: BallotStatusD.Created };
   }
   public deserializeBallotStatusActive(_input: AbiInput): BallotStatusActive {
-    return { discriminant: BallotStatusD.Active,  };
+    return { discriminant: BallotStatusD.Active };
   }
-  public deserializeBallotStatusTallying(_input: AbiInput): BallotStatusTallying {
-    return { discriminant: BallotStatusD.Tallying,  };
+  public deserializeBallotStatusTallying(
+    _input: AbiInput
+  ): BallotStatusTallying {
+    return { discriminant: BallotStatusD.Tallying };
   }
-  public deserializeBallotStatusCompleted(_input: AbiInput): BallotStatusCompleted {
-    return { discriminant: BallotStatusD.Completed,  };
+  public deserializeBallotStatusCompleted(
+    _input: AbiInput
+  ): BallotStatusCompleted {
+    return { discriminant: BallotStatusD.Completed };
   }
-  public deserializeBallotStatusCancelled(_input: AbiInput): BallotStatusCancelled {
-    return { discriminant: BallotStatusD.Cancelled,  };
+  public deserializeBallotStatusCancelled(
+    _input: AbiInput
+  ): BallotStatusCancelled {
+    return { discriminant: BallotStatusD.Cancelled };
   }
   public deserializeTally(_input: AbiInput): Tally {
     const option0: number = _input.readU32();
@@ -114,7 +131,6 @@ export class Ballot {
     const input = AbiByteInput.createLittleEndian(bytes);
     return this.deserializeBallotState(input);
   }
-
 }
 export interface BallotState {
   organization: BlockchainAddress;
@@ -172,7 +188,12 @@ export interface Tally {
   total: number;
 }
 
-export function initialize(options: string[], title: string, description: string, organization: BlockchainAddress): Buffer {
+export function initialize(
+  options: string[],
+  title: string,
+  description: string,
+  organization: BlockchainAddress
+): Buffer {
   return AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("ffffffff0f", "hex"));
     _out.writeI32(options.length);
@@ -203,9 +224,10 @@ export function castVote(): SecretInputBuilder<number> {
   const _publicRpc: Buffer = AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("40", "hex"));
   });
-  const _secretInput = (secret_input_lambda: number): CompactBitArray => AbiBitOutput.serialize((_out) => {
-    _out.writeI8(secret_input_lambda);
-  });
+  const _secretInput = (secret_input_lambda: number): CompactBitArray =>
+    AbiBitOutput.serialize((_out) => {
+      _out.writeI8(secret_input_lambda);
+    });
   return new SecretInputBuilder<>(_publicRpc, _secretInput);
 }
 
@@ -223,13 +245,11 @@ export function deserializeState(
 ): BallotState {
   if (Buffer.isBuffer(state)) {
     const input = AbiByteInput.createLittleEndian(state);
-    return new Ballot(client, address).deserializeBallotState(input);
+    return new generated(client, address).deserializeBallotState(input);
   } else {
     const input = AbiByteInput.createLittleEndian(state.bytes);
-    return new Ballot(
-      state.client,
-      state.address
-    ).deserializeBallotState(input);
+    return new generated(state.client, state.address).deserializeBallotState(
+      input
+    );
   }
 }
-

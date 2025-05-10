@@ -4,11 +4,11 @@ import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import BallotCard, { BallotStatus } from "./BallotCard";
 
 interface BallotsTabProps {
-  organizationId: string;
+  collectiveId: string;
   ballots: BlockchainAddress[];
 }
 
-const BallotsTab = ({ organizationId, ballots }: BallotsTabProps) => {
+const BallotsTab = ({ collectiveId, ballots }: BallotsTabProps) => {
   // These are sample ballots - in the real app, you would fetch actual ballot data
   const sampleBallots = [
     {
@@ -45,11 +45,12 @@ const BallotsTab = ({ organizationId, ballots }: BallotsTabProps) => {
 
   return (
     <div className="py-4">
-      <Link to={`/collectives/${organizationId}/ballots/new`}>
-        <Button size="sm" className="mb-6">
-          create new ballot
-        </Button>
-      </Link>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold">Ballots</h2>
+        <Link to={`/collectives/${collectiveId}/ballots/new`}>
+          <Button size="sm">create new ballot</Button>
+        </Link>
+      </div>
 
       {/* Display sample ballots */}
       <div className="space-y-6">
@@ -57,7 +58,7 @@ const BallotsTab = ({ organizationId, ballots }: BallotsTabProps) => {
           <BallotCard
             key={ballot.id}
             {...ballot}
-            organizationId={organizationId}
+            collectiveId={collectiveId}
             index={index}
           />
         ))}
@@ -80,7 +81,7 @@ const BallotsTab = ({ organizationId, ballots }: BallotsTabProps) => {
                 voteCount={0}
                 timeInfo="Unknown"
                 contractAddress={ballot}
-                organizationId={organizationId}
+                collectiveId={collectiveId}
                 index={index + sampleBallots.length}
               />
             ))}

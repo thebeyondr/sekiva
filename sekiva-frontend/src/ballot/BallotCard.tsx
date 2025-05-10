@@ -1,6 +1,14 @@
 import { Link } from "react-router";
 import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export type BallotStatus = "active" | "completed" | "pending";
 
@@ -12,7 +20,7 @@ export interface BallotCardProps {
   voteCount: number;
   timeInfo: string;
   contractAddress: BlockchainAddress | string;
-  organizationId: string;
+  collectiveId: string;
   index?: number; // Used for alternating colors in the geometric shapes
 }
 
@@ -24,7 +32,7 @@ const BallotCard = ({
   voteCount,
   timeInfo,
   contractAddress,
-  organizationId,
+  collectiveId,
   index = 0,
 }: BallotCardProps) => {
   // Determine status styling
@@ -62,8 +70,8 @@ const BallotCard = ({
       : contractAddress.asString();
 
   return (
-    <Link to={`/collectives/${organizationId}/ballots/${id}`} className="block">
-      <div className="relative bg-white border-2 border-black rounded-lg p-5 hover:translate-x-2 transition-all overflow-hidden group">
+    <Link to={`/collectives/${collectiveId}/ballots/${id}`} className="block">
+      <Card className="relative border-2 border-black rounded-lg overflow-hidden group hover:translate-x-2 transition-all shadow-none">
         {/* Geometric accent shapes in corners only */}
         <div
           className={`absolute -right-3 -top-3 w-12 h-12 ${topRightColor} z-0`}
@@ -73,45 +81,54 @@ const BallotCard = ({
         ></div>
 
         <div className="relative z-10">
-          <div className="flex justify-between items-start">
-            <h4 className="font-bold text-xl tracking-tight">{title}</h4>
-            <span
-              className={`ml-4 inline-flex items-center px-3 py-1 rounded-none ${getStatusStyles(status)} text-xs font-bold uppercase`}
-            >
-              {status}
-            </span>
-          </div>
-          <p className="text-gray-700 text-sm mt-3 line-clamp-2">
-            {description}
-          </p>
-          <div className="flex justify-between items-center mt-4 text-sm font-medium">
-            <div className="flex items-center gap-4">
-              <span className="bg-gray-200 text-gray-800 px-2 py-1">
-                {voteCount} votes
+          <CardHeader className="p-5 pb-0">
+            <div className="flex justify-between items-start">
+              <CardTitle className="font-bold text-xl tracking-tight">
+                {title}
+              </CardTitle>
+              <span
+                className={`ml-4 inline-flex items-center px-3 py-1 rounded-none ${getStatusStyles(status)} text-xs font-bold uppercase`}
+              >
+                {status}
               </span>
-              <span className="border-l-4 border-black pl-2">{timeInfo}</span>
             </div>
-            <span className="text-black font-bold">
-              <ArrowRightIcon className="w-6 h-6" />
-            </span>
-          </div>
+            <CardDescription className="text-gray-700 text-sm mt-3 line-clamp-2">
+              {description}
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="p-5 pt-3">
+            <div className="flex justify-between items-center text-sm font-medium">
+              <div className="flex items-center gap-4">
+                <span className="bg-gray-200 text-gray-800 px-2 py-1">
+                  {voteCount} votes
+                </span>
+                <span className="border-l-4 border-black pl-2">{timeInfo}</span>
+              </div>
+              <span className="text-black font-bold">
+                <ArrowRightIcon className="w-6 h-6" />
+              </span>
+            </div>
+          </CardContent>
 
           {/* Small contract address info at bottom */}
-          <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500 truncate">
-            Contract: {addressString.substring(0, 10)}...
-            {addressString.substring(addressString.length - 6)}
-            <a
-              href={`https://browser.testnet.partisiablockchain.com/contracts/${addressString}?tab=state`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-1 inline-block align-text-bottom"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLinkIcon className="w-3 h-3" />
-            </a>
-          </div>
+          <CardFooter className="p-5 pt-0 text-xs text-gray-500 border-t border-gray-100">
+            <div className="truncate">
+              Contract: {addressString.substring(0, 10)}...
+              {addressString.substring(addressString.length - 6)}
+              <a
+                href={`https://browser.testnet.partisiablockchain.com/contracts/${addressString}?tab=state`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 inline-block align-text-bottom"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLinkIcon className="w-3 h-3" />
+              </a>
+            </div>
+          </CardFooter>
         </div>
-      </div>
+      </Card>
     </Link>
   );
 };

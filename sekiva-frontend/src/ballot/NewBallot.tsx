@@ -18,14 +18,14 @@ function NewBallot() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { id: organizationId } = useParams();
+  const { id: collectiveId } = useParams();
 
   const form = useForm({
     defaultValues: {
       title: "",
       description: "",
       options: [] as string[],
-      organization: organizationId || "",
+      organization: collectiveId || "",
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
@@ -91,10 +91,10 @@ function NewBallot() {
 
   // Set organization from URL params when component loads
   useEffect(() => {
-    if (organizationId) {
-      form.setFieldValue("organization", organizationId);
+    if (collectiveId) {
+      form.setFieldValue("organization", collectiveId);
     }
-  }, [organizationId]);
+  }, [collectiveId]);
 
   return (
     <div className="min-h-screen bg-sk-yellow-saturated">
@@ -102,9 +102,9 @@ function NewBallot() {
         <NavBar />
         <section className="container mx-auto max-w-3xl py-10">
           <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
-            {organizationId && (
+            {collectiveId && (
               <div className="mb-4 flex items-center">
-                <Link to={`/collectives/${organizationId}`}>
+                <Link to={`/collectives/${collectiveId}`}>
                   <Button variant="outline" size="sm" className="text-xs">
                     &larr; Back to Collective
                   </Button>
@@ -152,11 +152,11 @@ function NewBallot() {
                             onChange={(e) => field.handleChange(e.target.value)}
                             onBlur={field.handleBlur}
                             placeholder="Paste organization address"
-                            readOnly={!!organizationId}
+                            readOnly={!!collectiveId}
                             className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 ${
                               field.state.meta.errors.length > 0
                                 ? "border-red-500"
-                                : organizationId
+                                : collectiveId
                                   ? "bg-gray-100"
                                   : ""
                             }`}

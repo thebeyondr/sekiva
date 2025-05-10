@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { SekivaFactoryClient } from "./contracts/factory/client";
 import { SekivaFactoryBasicState } from "./contracts/factory/api";
 import { CLIENT } from "./AppState";
+import { LayoutGrid, Plus } from "lucide-react";
 
 function Home() {
   const [factoryState, setFactoryState] =
@@ -49,36 +50,51 @@ function Home() {
       <div className="container mx-auto max-w-[1500px]">
         <NavBar />
         <section className="flex flex-col xl:flex-row gap-4 py-10">
-          <div className="w-[30%] xl:w-[50%] h-full">
+          <div className="w-full xl:w-[50%] h-full">
             <img
               src={bauhausIllustration}
               alt="Sekiva Illustration"
               className="w-full h-full"
             />
           </div>
-          <div className="flex-1 flex flex-col justify-center max-w-[85%] space-y-2">
-            <h1 className="text-3xl xl:text-6xl text-center tracking-tighter ">
+          <div className="flex-1 flex flex-col justify-center space-y-6 px-4">
+            <h1 className="text-3xl sm:text-4xl xl:text-6xl font-bold tracking-tighter max-w-2xl">
               Private on-chain ballots for modern collectives
             </h1>
-            <p className="text-center text-sm xl:text-base">
-              powered by{" "}
-              <Link to="https://partisiablockchain.com" target="_blank">
-                <Button
-                  variant="link"
-                  className="p-0 text-blue-600 text-lg tracking-tight font-medium"
-                >
-                  Partisia Blockchain
-                </Button>
+            <p className="text-lg max-w-xl">
+              Build decentralized organizations with secure private voting on{" "}
+              <Link
+                to="https://partisiablockchain.com"
+                target="_blank"
+                className="text-blue-600 font-medium hover:underline"
+              >
+                Partisia Blockchain
               </Link>
             </p>
-            <Link to="/collectives/new" className="w-fit mx-auto">
-              <Button className="w-fit mx-auto text-lg">
-                start collective
-              </Button>
-            </Link>
+
+            <div className="flex flex-wrap gap-4 pt-4">
+              <Link to="/collectives">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="flex items-center gap-2 border-2 border-black"
+                >
+                  <LayoutGrid className="w-5 h-5" />
+                  View Collectives
+                </Button>
+              </Link>
+
+              <Link to="/collectives/new">
+                <Button size="lg" className="flex items-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  Start Collective
+                </Button>
+              </Link>
+            </div>
           </div>
         </section>
-        <section className="flex flex-col gap-4 py-10">
+
+        <section className="flex flex-col gap-4 py-10 px-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Factory Contract State:</h2>
             <div className="flex items-center gap-2">
@@ -103,7 +119,7 @@ function Home() {
             </div>
           )}
           {factoryState && (
-            <div className="bg-white p-4 rounded shadow-sm">
+            <div className="bg-white p-4 rounded shadow-sm border border-black">
               <p>
                 <strong>Admin:</strong> {factoryState.admin?.asString()}
               </p>
@@ -113,41 +129,55 @@ function Home() {
                 </strong>
                 <ul className="list-disc pl-5">
                   {factoryState.organizations.map((org, index) => (
-                    <li key={index} className="flex items-center gap-2 mb-1">
-                      <Link
-                        to={`https://browser.testnet.partisiablockchain.com/contracts/${org.asString()}?tab=state`}
-                        target="_blank"
-                        className="text-blue-600 hover:underline"
-                      >
+                    <li
+                      key={index}
+                      className="flex flex-wrap items-center gap-2 mb-2"
+                    >
+                      <span className="font-mono text-sm truncate">
                         {org.asString()}
-                      </Link>
-                      {index === 0 && (
+                      </span>
+                      <div className="flex gap-2 ml-auto">
+                        <Link
+                          to={`https://browser.testnet.partisiablockchain.com/contracts/${org.asString()}?tab=state`}
+                          target="_blank"
+                          className="text-blue-600 text-xs px-2 py-1 border border-blue-600 rounded hover:bg-blue-50"
+                        >
+                          Explorer
+                        </Link>
                         <Link
                           to={`/collectives/${org.asString()}`}
-                          className="bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600"
+                          className="bg-blue-600 text-white text-xs px-2 py-1 rounded hover:bg-blue-700"
                         >
-                          View Collective
+                          View
                         </Link>
-                      )}
+                      </div>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div>
+              <div className="mt-4">
                 <strong>Ballots ({factoryState.ballots.length}):</strong>
                 <ul className="list-disc pl-5">
                   {factoryState.ballots.map((ballot, index) => (
-                    <li key={index}>
+                    <li key={index} className="mb-1">
                       <Link
                         to={`https://browser.testnet.partisiablockchain.com/contracts/${ballot.asString()}?tab=state`}
                         target="_blank"
-                        className="text-blue-600 hover:underline"
+                        className="font-mono text-sm text-blue-600 hover:underline"
                       >
                         {ballot.asString()}
                       </Link>
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-center">
+                <Link to="/collectives" className="inline-block">
+                  <Button variant="outline" className="border-2 border-black">
+                    Go to Collectives Dashboard
+                  </Button>
+                </Link>
               </div>
             </div>
           )}

@@ -4,7 +4,7 @@ import type { CollectiveCardData } from "./MyCollectives";
 
 const CollectiveCard = ({ collective }: { collective: CollectiveCardData }) => (
   <Link key={collective.id} to={`/collectives/${collective.id}`}>
-    <Card className="relative border-2 border-black rounded-lg hover:translate-y-[-4px] transition-all cursor-pointer h-full">
+    <Card className="overflow-hidden relative border-2 border-black rounded-lg hover:translate-y-[-4px] transition-all cursor-pointer h-full">
       <div className="h-40">
         {collective.bannerImage ? (
           <img

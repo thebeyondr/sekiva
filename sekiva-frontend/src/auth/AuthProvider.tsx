@@ -1,6 +1,10 @@
 import { useState, useEffect, ReactNode } from "react";
 import { connectMpcWallet } from "@/shared/MpcWalletSignatureProvider";
-import { resetAccount, setAccount, isConnected } from "@/AppState";
+import {
+  resetAccount,
+  setAccount,
+  isConnected as isConnectedFn,
+} from "@/AppState";
 import { AuthContext } from "@/auth/AuthContext";
 import { SessionManager } from "./SessionManager";
 
@@ -15,12 +19,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize authentication state based on wallet connection
     return SessionManager.hasWalletConnection();
   });
+  const [isConnected, setIsConnected] = useState<boolean>(() =>
+    isConnectedFn()
+  );
+
+  // Effect to keep isConnected in sync with state
+  useEffect(() => {
+    setIsConnected(isConnectedFn());
+  }, [walletAddress, isAuthenticated, isConnecting, isDisconnecting]);
 
   // Effect to reconnect wallet when the component mounts
   useEffect(() => {
     const checkAndReconnect = async () => {
       // Skip if already connected
-      if (isConnected()) return;
+      if (isConnectedFn()) return;
 
       try {
         // First check if we have partiWalletConnection in sessionStorage
@@ -30,13 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // without prompting the user again for connection
           setWalletAddress(session.connection.account.address);
           setIsAuthenticated(true);
+          setIsConnected(true);
           console.log(
             "Restored session from storage, address:",
             session.connection.account.address
           );
-
-          // No need to prompt the user again for connection
-          // Just set up our local state based on the session
         }
       } catch (error) {
         console.error("Failed to reconnect from stored session:", error);
@@ -70,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const address = userAccount.getAddress().trim();
         setWalletAddress(address);
         setIsAuthenticated(true);
+        setIsConnected(true);
       }
     } catch (error: unknown) {
       console.error("Wallet connection error:", error);
@@ -88,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetAccount();
       setWalletAddress(null);
       setIsAuthenticated(false);
+      setIsConnected(false);
 
       // The Partisia SDK does not have an explicit disconnect method
       // It only requires clearing the session from storage
@@ -105,12 +117,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         isConnecting,
         isDisconnecting,
-        isConnected: isConnected(),
-        isDisconnected: !isConnected(),
+        isConnected,
+        isDisconnected: !isConnected,
         walletSession: SessionManager.getPartiWalletSession(),
       });
     }
-  }, [walletAddress, isAuthenticated, isConnecting, isDisconnecting]);
+  }, [
+    walletAddress,
+    isAuthenticated,
+    isConnecting,
+    isDisconnecting,
+    isConnected,
+  ]);
 
   return (
     <AuthContext.Provider
@@ -118,8 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         walletAddress,
         isConnecting,
         isDisconnecting,
-        isConnected: isConnected(),
-        isDisconnected: !isConnected(),
+        isConnected,
+        isDisconnected: !isConnected,
         connect,
         disconnect,
         isAuthenticated,

@@ -14,7 +14,8 @@ use pbc_traits::WriteRPC;
 use read_write_rpc_derive::ReadWriteRPC;
 use read_write_state_derive::ReadWriteState;
 
-const DEPLOY_CONTRACT_ADDRESS: Address = Address {
+// https://browser.testnet.partisiablockchain.com/contracts/0197a0e238e924025bad144aa0c4913e46308f9a4d/deployContractWithBinderId
+const DEPLOY_PUBLIC_CONTRACT_ADDRESS: Address = Address {
     address_type: AddressType::SystemContract,
     identifier: [
         0x97, 0xa0, 0xe2, 0x38, 0xe9, 0x24, 0x02, 0x5b, 0xad, 0x14, 0x4a, 0xa0, 0xc4, 0x91, 0x3e,
@@ -22,8 +23,19 @@ const DEPLOY_CONTRACT_ADDRESS: Address = Address {
     ],
 };
 
+// https://browser.testnet.partisiablockchain.com/contracts/018bc1ccbb672b87710327713c97d43204905082cb/deployContractV3
+const DEPLOY_ZK_CONTRACT_ADDRESS: Address = Address {
+    address_type: AddressType::SystemContract,
+    identifier: [
+        0x8b, 0xc1, 0xcc, 0xbb, 0x67, 0x2b, 0x87, 0x71, 0x03, 0x27, 0x71, 0x3c, 0x97, 0xd4, 0x32,
+        0x04, 0x90, 0x50, 0x82, 0xcb,
+    ],
+};
+
 const DEPLOY_SHORTNAME: Shortname = Shortname::from_u32(4);
-const BINDER_ID: i32 = 9;
+const DEPLOY_ZK_SHORTNAME: Shortname = Shortname::from_u32(2);
+const WASM_BINDER_ID: i32 = 9;
+const ZK_BINDER_ID: i32 = 11;
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 #[repr(u8)]
@@ -147,7 +159,7 @@ fn deploy_organization(
     let mut event_group = EventGroup::builder();
 
     event_group
-        .call(DEPLOY_CONTRACT_ADDRESS, DEPLOY_SHORTNAME)
+        .call(DEPLOY_PUBLIC_CONTRACT_ADDRESS, DEPLOY_SHORTNAME)
         .argument(state.organization_contract_wasm.clone())
         .argument(state.organization_contract_abi.clone())
         .argument(create_org_init_data(
@@ -159,7 +171,7 @@ fn deploy_organization(
             org_info.discord_url,
             org_info.website_url,
         ))
-        .argument(BINDER_ID)
+        .argument(WASM_BINDER_ID)
         .done();
 
     event_group
@@ -218,7 +230,7 @@ fn deploy_organization_callback(
     (state, vec![])
 }
 
-/// Create a new ballot.
+/// Deploys a new ballot contract.
 ///
 /// # Arguments
 ///
@@ -243,22 +255,25 @@ fn deploy_ballot(
     organization: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     let ballot_contract_address = Address {
-        address_type: AddressType::PublicContract,
+        address_type: AddressType::ZkContract,
         identifier: ctx.original_transaction.bytes[12..32].try_into().unwrap(),
     };
     let mut event_group = EventGroup::builder();
 
     event_group
-        .call(DEPLOY_CONTRACT_ADDRESS, DEPLOY_SHORTNAME)
-        .argument(state.ballot_contract_zkwa.clone())
-        .argument(state.ballot_contract_abi.clone())
+        .call(DEPLOY_ZK_CONTRACT_ADDRESS, DEPLOY_ZK_SHORTNAME)
+        .argument(state.ballot_contract_zkwa.clone()) // contractJar
         .argument(create_ballot_init_data(
+            // initialization
             options,
             title,
             description,
             organization,
         ))
-        .argument(BINDER_ID)
+        .argument(state.ballot_contract_abi.clone()) // abi
+        .argument(20000000i64) // requiredStakes
+        .argument(Vec::<Vec<i32>>::new()) // allowedJurisdictions
+        .argument(ZK_BINDER_ID) // uniqueId
         .done();
 
     event_group

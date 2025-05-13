@@ -23,10 +23,10 @@ import {
 } from "@partisiablockchain/abi-client";
 
 type Option<K> = K | undefined;
-export class Organization {
+export class OrganizationGenerated {
   private readonly _client: BlockchainStateClient | undefined;
   private readonly _address: BlockchainAddress | undefined;
-
+  
   public constructor(
     client: BlockchainStateClient | undefined,
     address: BlockchainAddress | undefined
@@ -38,11 +38,7 @@ export class Organization {
     const owner: BlockchainAddress = _input.readAddress();
     const administrators_setLength = _input.readI32();
     const administrators: BlockchainAddress[] = [];
-    for (
-      let administrators_i = 0;
-      administrators_i < administrators_setLength;
-      administrators_i++
-    ) {
+    for (let administrators_i = 0; administrators_i < administrators_setLength; administrators_i++) {
       const administrators_elem: BlockchainAddress = _input.readAddress();
       administrators.push(administrators_elem);
     }
@@ -65,19 +61,7 @@ export class Organization {
       const ballots_elem: BlockchainAddress = _input.readAddress();
       ballots.push(ballots_elem);
     }
-    return {
-      owner,
-      administrators,
-      members,
-      name,
-      description,
-      profileImage,
-      bannerImage,
-      website,
-      xAccount,
-      discordServer,
-      ballots,
-    };
+    return { owner, administrators, members, name, description, profileImage, bannerImage, website, xAccount, discordServer, ballots };
   }
   public async getState(): Promise<OrganizationState> {
     const bytes = await this._client?.getContractStateBinary(this._address!);
@@ -87,6 +71,7 @@ export class Organization {
     const input = AbiByteInput.createLittleEndian(bytes);
     return this.deserializeOrganizationState(input);
   }
+
 }
 export interface OrganizationState {
   owner: BlockchainAddress;
@@ -102,15 +87,7 @@ export interface OrganizationState {
   ballots: BlockchainAddress[];
 }
 
-export function initialize(
-  name: string,
-  description: string,
-  profileImage: string,
-  bannerImage: string,
-  website: string,
-  xAccount: string,
-  discordServer: string
-): Buffer {
+export function initialize(name: string, description: string, profileImage: string, bannerImage: string, website: string, xAccount: string, discordServer: string): Buffer {
   return AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("ffffffff0f", "hex"));
     _out.writeString(name);
@@ -178,15 +155,7 @@ export function removeMembers(addresses: BlockchainAddress[]): Buffer {
   });
 }
 
-export function updateMetadata(
-  name: Option<string>,
-  description: Option<string>,
-  profileImage: Option<string>,
-  bannerImage: Option<string>,
-  website: Option<string>,
-  xAccount: Option<string>,
-  discordServer: Option<string>
-): Buffer {
+export function updateMetadata(name: Option<string>, description: Option<string>, profileImage: Option<string>, bannerImage: Option<string>, website: Option<string>, xAccount: Option<string>, discordServer: Option<string>): Buffer {
   return AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("08", "hex"));
     _out.writeBoolean(name !== undefined);
@@ -234,14 +203,13 @@ export function deserializeState(
 ): OrganizationState {
   if (Buffer.isBuffer(state)) {
     const input = AbiByteInput.createLittleEndian(state);
-    return new Organization(client, address).deserializeOrganizationState(
-      input
-    );
+    return new OrganizationGenerated(client, address).deserializeOrganizationState(input);
   } else {
     const input = AbiByteInput.createLittleEndian(state.bytes);
-    return new Organization(
+    return new OrganizationGenerated(
       state.client,
       state.address
     ).deserializeOrganizationState(input);
   }
 }
+

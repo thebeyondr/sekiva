@@ -23,7 +23,7 @@ import {
 } from "@partisiablockchain/abi-client";
 
 type Option<K> = K | undefined;
-export class SekivaFactory {
+export class SekivaFactoryGenerated {
   private readonly _client: BlockchainStateClient | undefined;
   private readonly _address: BlockchainAddress | undefined;
   
@@ -172,10 +172,10 @@ export function deserializeState(
 ): SekivaFactoryState {
   if (Buffer.isBuffer(state)) {
     const input = AbiByteInput.createLittleEndian(state);
-    return new SekivaFactory(client, address).deserializeSekivaFactoryState(input);
+    return new SekivaFactoryGenerated(client, address).deserializeSekivaFactoryState(input);
   } else {
     const input = AbiByteInput.createLittleEndian(state.bytes);
-    return new SekivaFactory(
+    return new SekivaFactoryGenerated(
       state.client,
       state.address
     ).deserializeSekivaFactoryState(input);

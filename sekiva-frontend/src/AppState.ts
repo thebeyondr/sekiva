@@ -22,7 +22,8 @@ import {
   BlockchainTransactionClient,
   SenderAuthentication,
 } from "@partisiablockchain/blockchain-api-transaction-client";
-import { SekivaFactoryApi } from "./contracts/factory/api";
+import { SekivaFactoryClient } from "./contracts/factory/client";
+// import { BallotClient } from "./contracts/ballot/client";
 
 export const TESTNET_URL = "https://node1.testnet.partisiablockchain.com";
 
@@ -34,11 +35,12 @@ export const CLIENT = new ShardedClient(TESTNET_URL, [
 
 let contractAddress: string | undefined;
 let currentAccount: SenderAuthentication | undefined;
-let factoryApi: SekivaFactoryApi | undefined;
+export let factoryClient: SekivaFactoryClient | undefined;
+// export let ballotClient: BallotClient | undefined;
 
 export const setAccount = (account: SenderAuthentication | undefined) => {
   currentAccount = account;
-  initializeFactoryApi();
+  initializeFactoryClient();
 };
 
 export const getAccount = () => {
@@ -61,11 +63,11 @@ export const FactoryApi = () => {
       currentAccount
     );
   }
-  return new SekivaFactoryApi(CLIENT, transactionClient);
+  return new SekivaFactoryClient(CLIENT, transactionClient);
 };
 
-export const getFactoryApi = () => {
-  return factoryApi;
+export const getFactoryClient = () => {
+  return factoryClient;
 };
 
 export const getContractAddress = () => {
@@ -74,23 +76,30 @@ export const getContractAddress = () => {
 
 export const setContractAddress = (address: string) => {
   contractAddress = address;
-  initializeFactoryApi();
+  initializeFactoryClient();
 };
 
-function initializeFactoryApi() {
+function initializeFactoryClient() {
   if (currentAccount && contractAddress) {
     try {
       const transactionClient = BlockchainTransactionClient.create(
         TESTNET_URL,
         currentAccount
       );
-
-      factoryApi = new SekivaFactoryApi(CLIENT, transactionClient);
+      factoryClient = new SekivaFactoryClient(CLIENT, transactionClient);
+      // ballotClient = BallotClient.withAccount(
+      //   transactionClient,
+      //   currentAccount
+      // );
     } catch (error) {
       console.error("Error updating factory API:", error);
-      factoryApi = undefined;
+      factoryClient = undefined;
+      // ballotClient = undefined;
     }
   } else {
-    factoryApi = undefined;
+    factoryClient = undefined;
+    // ballotClient = BallotClient.forReadOnly(
+    //   BlockchainTransactionClient.create(TESTNET_URL, currentAccount)
+    // );
   }
 }

@@ -35,7 +35,7 @@ interface BallotDetails {
 }
 
 const BallotPage = () => {
-  const { collectiveId, ballotId } = useParams();
+  const { organizationId, ballotId } = useParams();
   const [ballot, setBallot] = useState<BallotDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +64,7 @@ const BallotPage = () => {
           createdAt: "2023-11-10",
           endDate: "2023-12-10",
           voteCount: 24,
-          organizationId: collectiveId || "",
+          organizationId: organizationId || "",
           options: [
             { id: "option-1", text: "Developer Grants (40% allocation)" },
             { id: "option-2", text: "Community Events (30% allocation)" },
@@ -80,7 +80,7 @@ const BallotPage = () => {
       const errorMessage = err instanceof Error ? err.message : String(err);
       handleError(errorMessage);
     }
-  }, [ballotId, collectiveId]);
+  }, [ballotId, organizationId]);
 
   // Color variants for the geometric accents
   const getStatusColor = (status: BallotStatus) => {
@@ -115,7 +115,7 @@ const BallotPage = () => {
         <section className="container mx-auto max-w-4xl py-6">
           {/* Back Button */}
           <Link
-            to={`/collectives/${collectiveId}`}
+            to={`/collectives/${organizationId}`}
             className="flex items-center gap-2 mb-8 hover:underline"
           >
             <ArrowLeftIcon className="w-4 h-4" />

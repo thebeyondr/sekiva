@@ -20,8 +20,18 @@ export interface BallotCardProps {
   voteCount: number;
   timeInfo: string;
   contractAddress: BlockchainAddress | string;
-  collectiveId: string;
+  organizationId: string;
   index?: number; // Used for alternating colors in the geometric shapes
+  options: string[];
+  tally?: {
+    option0: number;
+    option1: number;
+    option2: number;
+    option3: number;
+    option4: number;
+  };
+  winningOption?: number;
+  hasVoted: boolean;
 }
 
 const BallotCard = ({
@@ -32,8 +42,12 @@ const BallotCard = ({
   voteCount,
   timeInfo,
   contractAddress,
-  collectiveId,
+  organizationId,
   index = 0,
+  options,
+  tally,
+  winningOption,
+  hasVoted,
 }: BallotCardProps) => {
   // Determine status styling
   const getStatusStyles = (status: BallotStatus) => {
@@ -71,7 +85,10 @@ const BallotCard = ({
 
   return (
     <div className="relative bg-black rounded-md shadow-none">
-      <Link to={`/collectives/${collectiveId}/ballots/${id}`} className="block">
+      <Link
+        to={`/collectives/${organizationId}/ballots/${id}`}
+        className="block"
+      >
         <Card className="relative border-[1.5px] border-black rounded-t-md rounded-b-none overflow-hidden group hover:-translate-y-2 hover:translate-x-2 transition-all shadow-none bg-white">
           <div
             className={`absolute -right-3 -top-3 w-12 h-12 ${topRightColor} z-0`}
@@ -98,18 +115,66 @@ const BallotCard = ({
             </CardHeader>
 
             <CardContent className="p-5 pt-3 shadow-none">
-              <div className="flex justify-between items-center text-sm font-medium">
-                <div className="flex items-center gap-4">
-                  <span className="bg-stone-200 text-stone-800 px-2 py-1">
-                    {voteCount} votes
-                  </span>
-                  <span className="border-l-4 border-black pl-2">
-                    {timeInfo}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm font-medium">
+                  <div className="flex items-center gap-4">
+                    <span className="bg-stone-200 text-stone-800 px-2 py-1">
+                      {voteCount} votes
+                    </span>
+                    <span className="border-l-4 border-black pl-2">
+                      {timeInfo}
+                    </span>
+                    {hasVoted && (
+                      <span className="bg-green-100 text-green-800 px-2 py-1">
+                        Voted ✓
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-black font-bold">
+                    <ArrowRightIcon className="w-6 h-6" />
                   </span>
                 </div>
-                <span className="text-black font-bold">
-                  <ArrowRightIcon className="w-6 h-6" />
-                </span>
+
+                {status === "completed" && tally && (
+                  <div className="mt-2 space-y-2">
+                    {options.map((option, idx) => {
+                      const voteCount =
+                        [
+                          tally.option0,
+                          tally.option1,
+                          tally.option2,
+                          tally.option3,
+                          tally.option4,
+                        ][idx] || 0;
+                      const totalVotes = Object.values(tally).reduce(
+                        (sum, val) => sum + val,
+                        0
+                      );
+                      const percentage =
+                        totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
+                      const isWinning = idx === winningOption;
+
+                      return (
+                        <div key={idx} className="text-sm">
+                          <div className="flex justify-between mb-1">
+                            <span className="font-medium">{option}</span>
+                            <span className="text-stone-600">
+                              {voteCount} votes
+                            </span>
+                          </div>
+                          <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${
+                                isWinning ? "bg-green-500" : "bg-stone-300"
+                              }`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </CardContent>
           </div>

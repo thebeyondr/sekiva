@@ -3,10 +3,16 @@ import bauhausIllustration from "@/assets/bauhaus-illustration.webp";
 import { Link } from "react-router";
 import { Button } from "./components/ui/button";
 import { useEffect, useState } from "react";
-import { SekivaFactoryClient } from "./contracts/factory/client";
-import { SekivaFactoryBasicState } from "./contracts/factory/api";
+import {
+  SekivaFactoryBasicState,
+  SekivaFactoryClient,
+} from "./contracts/factory/client";
 import { CLIENT } from "./AppState";
 import { LayoutGrid, Plus } from "lucide-react";
+import {
+  BallotState,
+  deserializeState,
+} from "./contracts/ballot/BallotGenerated";
 
 function Home() {
   const [factoryState, setFactoryState] =
@@ -14,6 +20,24 @@ function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [ballotState, setBallotState] = useState<BallotState | null>(null);
+
+  const fetchBallotState = async () => {
+    const contractData = await CLIENT.getContractData(
+      "03882ccf9157456e230cd0489816fc1df27893abf2",
+      true
+    );
+    if (!contractData) return;
+    console.log({ ballotContractData: contractData });
+    const serializedContract = contractData.serializedContract;
+
+    console.log({ ballotSerializedContract: serializedContract });
+
+    const stateBuffer = Buffer.from(serializedContract as string, "base64");
+    const state = deserializeState(stateBuffer);
+    console.log({ ballotState: state });
+    setBallotState(state);
+  };
 
   const fetchFactoryState = async () => {
     setLoading(true);
@@ -25,6 +49,8 @@ function Home() {
 
       // Get factory state
       const state = await factoryClient.getState();
+
+      console.log({ state });
 
       setFactoryState(state);
       setLastRefreshed(new Date());
@@ -39,6 +65,7 @@ function Home() {
 
   useEffect(() => {
     fetchFactoryState();
+    fetchBallotState();
   }, []);
 
   const handleRefresh = () => {
@@ -170,6 +197,7 @@ function Home() {
                     </li>
                   ))}
                 </ul>
+                <p>Ballot title:{ballotState?.title}</p>
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-200 flex justify-center">

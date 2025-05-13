@@ -12,7 +12,6 @@ use create_type_spec_derive::CreateTypeSpec;
 use pbc_contract_common::address::Address;
 use pbc_contract_common::context::ContractContext;
 use pbc_contract_common::events::EventGroup;
-use pbc_contract_common::sorted_vec_map::SortedVecSet;
 use pbc_contract_common::zk::CalculationStatus;
 use pbc_contract_common::zk::{SecretVarId, ZkInputDef, ZkState, ZkStateChange};
 use pbc_traits::ReadWriteState;
@@ -74,7 +73,7 @@ struct BallotState {
     start_time: u64,
     end_time: u64,
     status: Option<BallotStatus>,
-    voters: SortedVecSet<Address>, // Tracks who has already voted
+    voters: Vec<Address>,
     tally: Option<Tally>,
 }
 
@@ -103,7 +102,7 @@ fn initialize(
         end_time: 0,
         status: Some(BallotStatus::Created {}),
         tally: None,
-        voters: SortedVecSet::new(),
+        voters: vec![],
     }
 }
 
@@ -136,35 +135,36 @@ fn cast_vote(
     ZkInputDef<SecretVarType, Sbi8>,
 ) {
     assert!(
-        state.status.unwrap() == BallotStatus::Active {},
-        "Ballot is not active"
+        zk_state
+            .secret_variables
+            .iter()
+            .chain(zk_state.pending_inputs.iter())
+            .all(|(_, v)| v.owner != context.sender),
+        "Each address is only allowed to send one vote. Sender: {:?}",
+        context.sender
     );
 
-    assert!(!state.voters.contains(&context.sender), "Already voted");
+    let input_def = ZkInputDef::<SecretVarType, Sbi8>::with_metadata(
+        Some(SHORTNAME_VOTE_INPUTTED),
+        SecretVarType::Vote {},
+    );
 
-    let mut voters = state.voters.clone();
-    voters.insert(context.sender);
-
-    let input_def = ZkInputDef::<SecretVarType, Sbi8>::with_metadata(None, SecretVarType::Vote {});
-
-    (
-        BallotState {
-            voters,
-            status: state.status.clone(),
-            ..state
-        },
-        vec![],
-        input_def,
-    )
+    (state, vec![], input_def)
 }
 
 #[zk_on_variable_inputted(shortname = 0x41)]
 fn vote_inputted(
     context: ContractContext,
-    state: BallotState,
+    mut state: BallotState,
     zk_state: ZkState<SecretVarType>,
     inputted_variable: SecretVarId,
 ) -> BallotState {
+    assert!(
+        state.status.unwrap() == BallotStatus::Active {},
+        "Ballot is not active"
+    );
+
+    state.voters.push(context.sender);
     state
 }
 
@@ -195,7 +195,7 @@ fn compute_tally(
         },
         vec![],
         vec![zk_compute::tally_votes_start(
-            None,
+            Some(SHORTNAME_TALLY_COMPUTE_COMPLETE),
             &[SecretVarType::TallyResult {}],
         )],
     )

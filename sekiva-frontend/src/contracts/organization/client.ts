@@ -1,77 +1,243 @@
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
+import {
+  deserializeState,
+  OrganizationState,
+  addAdministrator,
+  removeAdministrator,
+  addMember,
+  removeMember,
+  addBallot,
+  addMembers,
+  removeMembers,
+  updateMetadata,
+} from "./OrganizationGenerated";
+
 import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
+import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { ShardedClient } from "@/client/ShardedClient";
-import { OrganizationApi } from "./api";
-import { OrganizationState } from "./generated";
 
 /**
  * Client for interacting with a deployed Organization contract.
- * Provides convenience methods and wraps the OrganizationApi.
+ * Provides convenience methods for interacting with the organization contract.
  */
 export class OrganizationClient {
-  private api: OrganizationApi;
+  private readonly transactionClient: BlockchainTransactionClient | undefined;
+  private readonly client: ShardedClient;
+  private readonly contractAddress: BlockchainAddress;
 
-  /**
-   * Creates a new OrganizationClient
-   *
-   * @param shardedClient - Client for interacting with the Partisia blockchain
-   * @param contractAddress - Address of the organization contract
-   * @param transactionClient - Optional client for sending transactions (required for write operations)
-   */
   constructor(
     shardedClient: ShardedClient,
     contractAddress: BlockchainAddress,
     transactionClient?: BlockchainTransactionClient
   ) {
-    this.api = new OrganizationApi(
-      shardedClient,
-      contractAddress,
-      transactionClient
+    this.transactionClient = transactionClient;
+    this.client = shardedClient;
+    this.contractAddress = contractAddress;
+  }
+
+  private _getState(): Promise<OrganizationState> {
+    const contractAddressStr = this.contractAddress.asString();
+
+    console.log(
+      `Fetching organization data for address: ${contractAddressStr}`
     );
+
+    return this.client
+      .getContractData(contractAddressStr, true)
+      .then((contract) => {
+        if (contract == null) {
+          throw new Error("Could not find data for organization contract");
+        }
+
+        console.log("Organization data retrieved:", contract);
+
+        interface ExtendedContractData {
+          serializedContract?: unknown;
+          state?: {
+            owner?: string;
+            administrators?: string[];
+            members?: string[];
+            name?: string;
+            description?: string;
+            profileImage?: string;
+            bannerImage?: string;
+            website?: string;
+            xAccount?: string;
+            discordServer?: string;
+            ballots?: string[];
+            [key: string]: unknown;
+          };
+          [key: string]: unknown;
+        }
+
+        const extendedContract = contract as unknown as ExtendedContractData;
+
+        if (extendedContract.serializedContract) {
+          console.log("Contract has serializedContract data");
+          try {
+            let stateBuffer: Buffer;
+
+            if (typeof extendedContract.serializedContract === "string") {
+              stateBuffer = Buffer.from(
+                extendedContract.serializedContract,
+                "base64"
+              );
+            } else if (
+              typeof extendedContract.serializedContract === "object" &&
+              extendedContract.serializedContract !== null
+            ) {
+              const serializedObj = extendedContract.serializedContract as {
+                data?: string;
+              };
+              if (
+                serializedObj.data &&
+                typeof serializedObj.data === "string"
+              ) {
+                stateBuffer = Buffer.from(serializedObj.data, "base64");
+              } else {
+                stateBuffer = Buffer.from(
+                  JSON.stringify(extendedContract.serializedContract)
+                );
+              }
+            } else {
+              throw new Error("Unexpected serializedContract format");
+            }
+
+            console.log(
+              `State buffer created, length: ${stateBuffer.length} bytes`
+            );
+
+            const state = deserializeState(stateBuffer);
+            console.log("Successfully deserialized organization state:", state);
+            return state;
+          } catch (error) {
+            console.error("Error deserializing organization state:", error);
+
+            if (extendedContract.state) {
+              return this.createStateFromDirectData(extendedContract.state);
+            }
+          }
+        } else if (extendedContract.state) {
+          return this.createStateFromDirectData(extendedContract.state);
+        }
+
+        console.log("No usable organization state found, using minimal state");
+        return this.createMinimalState();
+      })
+      .catch((error) => {
+        console.error("Error fetching organization state:", error);
+        console.log("Using minimal fallback state");
+        return this.createMinimalState();
+      });
   }
 
-  /**
-   * Gets the state of the organization contract
-   */
+  private createStateFromDirectData(stateData: {
+    owner?: string;
+    administrators?: string[];
+    members?: string[];
+    name?: string;
+    description?: string;
+    profileImage?: string;
+    bannerImage?: string;
+    website?: string;
+    xAccount?: string;
+    discordServer?: string;
+    ballots?: string[];
+    [key: string]: unknown;
+  }): OrganizationState {
+    console.log(
+      "Creating organization state from direct state data:",
+      stateData
+    );
+
+    try {
+      const owner = stateData.owner
+        ? BlockchainAddress.fromString(stateData.owner)
+        : this.contractAddress;
+
+      const administrators = Array.isArray(stateData.administrators)
+        ? stateData.administrators.map((addr: string) =>
+            BlockchainAddress.fromString(addr)
+          )
+        : [];
+
+      const members = Array.isArray(stateData.members)
+        ? stateData.members.map((addr: string) =>
+            BlockchainAddress.fromString(addr)
+          )
+        : [];
+
+      const ballots = Array.isArray(stateData.ballots)
+        ? stateData.ballots.map((addr: string) =>
+            BlockchainAddress.fromString(addr)
+          )
+        : [];
+
+      const state: OrganizationState = {
+        owner,
+        administrators,
+        members,
+        name: stateData.name || "",
+        description: stateData.description || "",
+        profileImage: stateData.profileImage || "",
+        bannerImage: stateData.bannerImage || "",
+        website: stateData.website || "",
+        xAccount: stateData.xAccount || "",
+        discordServer: stateData.discordServer || "",
+        ballots,
+      };
+
+      console.log("Created organization state from direct API data:", state);
+      return state;
+    } catch (error) {
+      console.error(
+        "Error creating organization state from direct data:",
+        error
+      );
+      return this.createMinimalState();
+    }
+  }
+
+  private createMinimalState(): OrganizationState {
+    return {
+      owner: this.contractAddress,
+      administrators: [],
+      members: [],
+      name: "",
+      description: "",
+      profileImage: "",
+      bannerImage: "",
+      website: "",
+      xAccount: "",
+      discordServer: "",
+      ballots: [],
+    };
+  }
+
+  // Public API methods
   async getState(): Promise<OrganizationState> {
-    return this.api.getState();
+    return this._getState();
   }
 
-  /**
-   * Gets the owner of the organization
-   */
   async getOwner(): Promise<BlockchainAddress> {
-    const state = await this.api.getState();
+    const state = await this._getState();
     return state.owner;
   }
 
-  /**
-   * Gets the administrators of the organization
-   */
   async getAdministrators(): Promise<BlockchainAddress[]> {
-    const state = await this.api.getState();
+    const state = await this._getState();
     return state.administrators;
   }
 
-  /**
-   * Gets the members of the organization
-   */
   async getMembers(): Promise<BlockchainAddress[]> {
-    const state = await this.api.getState();
+    const state = await this._getState();
     return state.members;
   }
 
-  /**
-   * Gets the ballots associated with the organization
-   */
   async getBallots(): Promise<BlockchainAddress[]> {
-    const state = await this.api.getState();
+    const state = await this._getState();
     return state.ballots;
   }
 
-  /**
-   * Gets organization metadata as a formatted object
-   */
   async getMetadata(): Promise<{
     name: string;
     description: string;
@@ -81,7 +247,7 @@ export class OrganizationClient {
     xAccount: string;
     discordServer: string;
   }> {
-    const state = await this.api.getState();
+    const state = await this._getState();
     return {
       name: state.name,
       description: state.description,
@@ -93,11 +259,6 @@ export class OrganizationClient {
     };
   }
 
-  /**
-   * Checks if an address is an administrator of the organization
-   *
-   * @param address - The address to check
-   */
   async isAdministrator(address: BlockchainAddress): Promise<boolean> {
     const administrators = await this.getAdministrators();
     return administrators.some(
@@ -105,84 +266,95 @@ export class OrganizationClient {
     );
   }
 
-  /**
-   * Checks if an address is a member of the organization
-   *
-   * @param address - The address to check
-   */
   async isMember(address: BlockchainAddress): Promise<boolean> {
     const members = await this.getMembers();
     return members.some((member) => member.asString() === address.asString());
   }
 
-  /**
-   * Adds an administrator to the organization
-   *
-   * @param address - The address to add as administrator
-   */
   async addAdministrator(address: BlockchainAddress) {
-    return this.api.addAdministrator(address);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = addAdministrator(address);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      100_000
+    );
   }
 
-  /**
-   * Removes an administrator from the organization
-   *
-   * @param address - The address to remove
-   */
   async removeAdministrator(address: BlockchainAddress) {
-    return this.api.removeAdministrator(address);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = removeAdministrator(address);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      100_000
+    );
   }
 
-  /**
-   * Adds a member to the organization
-   *
-   * @param address - The address to add as member
-   */
   async addMember(address: BlockchainAddress) {
-    return this.api.addMember(address);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = addMember(address);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      100_000
+    );
   }
 
-  /**
-   * Removes a member from the organization
-   *
-   * @param address - The address to remove
-   */
   async removeMember(address: BlockchainAddress) {
-    return this.api.removeMember(address);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = removeMember(address);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      100_000
+    );
   }
 
-  /**
-   * Adds multiple members to the organization in a single transaction
-   *
-   * @param addresses - Array of addresses to add as members
-   */
   async addMembers(addresses: BlockchainAddress[]) {
-    return this.api.addMembers(addresses);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = addMembers(addresses);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      200_000
+    );
   }
 
-  /**
-   * Removes multiple members from the organization in a single transaction
-   *
-   * @param addresses - Array of addresses to remove
-   */
   async removeMembers(addresses: BlockchainAddress[]) {
-    return this.api.removeMembers(addresses);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = removeMembers(addresses);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      200_000
+    );
   }
 
-  /**
-   * Adds a ballot to the organization
-   *
-   * @param address - Address of the ballot contract
-   */
   async addBallot(address: BlockchainAddress) {
-    return this.api.addBallot(address);
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = addBallot(address);
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      100_000
+    );
   }
 
-  /**
-   * Updates organization metadata
-   *
-   * @param metadata - Object containing metadata fields to update
-   */
   async updateMetadata(metadata: {
     name?: string;
     description?: string;
@@ -192,7 +364,11 @@ export class OrganizationClient {
     xAccount?: string;
     discordServer?: string;
   }) {
-    return this.api.updateMetadata(
+    if (this.transactionClient === undefined) {
+      throw new Error("No account logged in");
+    }
+
+    const rpc = updateMetadata(
       metadata.name,
       metadata.description,
       metadata.profileImage,
@@ -201,15 +377,13 @@ export class OrganizationClient {
       metadata.xAccount,
       metadata.discordServer
     );
+
+    return this.transactionClient.signAndSend(
+      { address: this.contractAddress.asString(), rpc },
+      150_000
+    );
   }
 
-  /**
-   * Creates a client with the transaction client configured for a specific account
-   *
-   * @param shardedClient - The sharded client to use
-   * @param contractAddress - The address of the organization contract
-   * @param transactionClient - The transaction client configured with account info
-   */
   static withAccount(
     shardedClient: ShardedClient,
     contractAddress: BlockchainAddress,

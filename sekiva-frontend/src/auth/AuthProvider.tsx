@@ -7,6 +7,7 @@ import {
 } from "@/AppState";
 import { AuthContext } from "@/auth/AuthContext";
 import { SessionManager } from "./SessionManager";
+import { SenderAuthentication } from "@partisiablockchain/blockchain-api-transaction-client";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(() => {
@@ -38,11 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // First check if we have partiWalletConnection in sessionStorage
         const session = SessionManager.getPartiWalletSession();
         if (session?.connection?.account?.address) {
-          // If we have a session, we can use it to set up the wallet state
-          // without prompting the user again for connection
           setWalletAddress(session.connection.account.address);
           setIsAuthenticated(true);
           setIsConnected(true);
+          // Restore SenderAuthentication for read-only (no sign)
+          const restoredAccount: SenderAuthentication = {
+            getAddress: () => session.connection.account.address,
+            sign: async () => {
+              throw new Error("Wallet not connected for signing");
+            },
+          };
+          setAccount(restoredAccount);
           console.log(
             "Restored session from storage, address:",
             session.connection.account.address

@@ -22,8 +22,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="collectives">
             <Route index element={<MyCollectives />} />
             <Route path="new" element={<NewCollectivePage />} />
-            <Route path=":id" element={<CollectiveDetail />} />
-            <Route path=":collectiveId/ballots">
+            <Route path=":organizationId" element={<CollectiveDetail />} />
+            <Route path=":organizationId/ballots">
               <Route path="new" element={<NewBallot />} />
               <Route path=":ballotId" element={<BallotPage />} />
             </Route>

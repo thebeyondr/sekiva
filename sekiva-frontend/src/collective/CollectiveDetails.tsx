@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrganizationClient } from "@/contracts/organization/client";
 import { OrganizationState } from "@/contracts/organization/generated";
+import { SekivaFactoryClient } from "@/contracts/factory/client";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
@@ -16,7 +17,7 @@ const Skeleton = ({ className }: { className: string }) => (
 );
 
 const OrganizationDetail = () => {
-  const { id } = useParams();
+  const { organizationId } = useParams();
   const [organization, setOrganization] = useState<OrganizationState | null>(
     null
   );
@@ -24,19 +25,57 @@ const OrganizationDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState("ballots");
+  const [ballots, setBallots] = useState<BlockchainAddress[]>([]);
+
+  console.log("organizationId", organizationId);
 
   const fetchOrganizationData = async () => {
-    if (!id) return;
+    if (!organizationId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const orgAddress = BlockchainAddress.fromString(id);
+      const orgAddress = BlockchainAddress.fromString(organizationId);
       const orgClient = new OrganizationClient(CLIENT, orgAddress);
+      const factoryClient = new SekivaFactoryClient(CLIENT);
 
-      const orgState = await orgClient.getState();
+      // Get organization state and ballot addresses
+      const [orgState] = await Promise.all([orgClient.getState()]);
       setOrganization(orgState);
+
+      // Get ballots for this organization
+      const orgBallotAddresses =
+        await factoryClient.getOrganizationBallots(orgAddress);
+      console.log("Raw ballot addresses from factory:", orgBallotAddresses);
+
+      // Filter out invalid addresses
+      const validBallotAddresses = orgBallotAddresses.filter(
+        (addr): addr is BlockchainAddress => {
+          if (!addr) {
+            console.warn("Null ballot address found");
+            return false;
+          }
+          const addrStr = addr.asString();
+          if (!addrStr || addrStr.length === 0) {
+            console.warn("Empty ballot address found");
+            return false;
+          }
+          if (addrStr.length !== 42) {
+            console.warn(
+              `Invalid ballot address length: ${addrStr} (${addrStr.length})`
+            );
+            return false;
+          }
+          return true;
+        }
+      );
+
+      console.log(
+        "Valid ballot addresses:",
+        validBallotAddresses.map((a) => a.asString())
+      );
+      setBallots(validBallotAddresses);
       setLastRefreshed(new Date());
     } catch (err) {
       console.error("Error fetching organization data:", err);
@@ -49,7 +88,7 @@ const OrganizationDetail = () => {
 
   useEffect(() => {
     fetchOrganizationData();
-  }, [id]);
+  }, [organizationId]);
 
   const handleRefresh = () => {
     fetchOrganizationData();
@@ -171,8 +210,8 @@ const OrganizationDetail = () => {
                 <div className="p-4">
                   <TabsContent value="ballots" className="m-0">
                     <BallotsTab
-                      organizationId={id || ""}
-                      ballots={organization.ballots}
+                      organizationId={organizationId || ""}
+                      ballots={ballots}
                     />
                   </TabsContent>
                   <TabsContent value="members" className="m-0">
@@ -185,7 +224,7 @@ const OrganizationDetail = () => {
                   <TabsContent value="about" className="m-0">
                     <AboutTab
                       organization={organization}
-                      contractId={id || ""}
+                      contractId={organizationId || ""}
                     />
                   </TabsContent>
                 </div>

@@ -3,8 +3,10 @@ import { useAuth } from "@/auth/useAuth";
 import NavBar from "@/components/shared/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { SekivaFactoryBasicState } from "@/contracts/factory/api";
-import { SekivaFactoryClient } from "@/contracts/factory/client";
+import {
+  SekivaFactoryBasicState,
+  SekivaFactoryClient,
+} from "@/contracts/factory/client";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";

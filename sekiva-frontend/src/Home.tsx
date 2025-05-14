@@ -2,76 +2,9 @@ import NavBar from "@/components/shared/NavBar";
 import bauhausIllustration from "@/assets/bauhaus-illustration.webp";
 import { Link } from "react-router";
 import { Button } from "./components/ui/button";
-import { useEffect, useState } from "react";
-import {
-  SekivaFactoryBasicState,
-  SekivaFactoryClient,
-} from "./contracts/factory/client";
-import { CLIENT } from "./AppState";
 import { LayoutGrid, Plus } from "lucide-react";
-import {
-  BallotState,
-  deserializeState,
-} from "./contracts/ballot/BallotGenerated";
 
 function Home() {
-  const [factoryState, setFactoryState] =
-    useState<SekivaFactoryBasicState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [ballotState, setBallotState] = useState<BallotState | null>(null);
-
-  const fetchBallotState = async () => {
-    const contractData = await CLIENT.getContractData(
-      "03882ccf9157456e230cd0489816fc1df27893abf2",
-      true
-    );
-    if (!contractData) return;
-    console.log({ ballotContractData: contractData });
-    const serializedContract = contractData.serializedContract;
-
-    console.log({ ballotSerializedContract: serializedContract });
-
-    const stateBuffer = Buffer.from(serializedContract as string, "base64");
-    const state = deserializeState(stateBuffer);
-    console.log({ ballotState: state });
-    setBallotState(state);
-  };
-
-  const fetchFactoryState = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Create factory client using the global CLIENT instance
-      const factoryClient = new SekivaFactoryClient(CLIENT);
-
-      // Get factory state
-      const state = await factoryClient.getState();
-
-      console.log({ state });
-
-      setFactoryState(state);
-      setLastRefreshed(new Date());
-    } catch (err) {
-      console.error("Error fetching factory state:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFactoryState();
-    fetchBallotState();
-  }, []);
-
-  const handleRefresh = () => {
-    fetchFactoryState();
-  };
-
   return (
     <div className="h-screen bg-sk-yellow-light overflow-auto">
       <div className="container mx-auto max-w-[1500px]">
@@ -120,10 +53,17 @@ function Home() {
             </div>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
 
-        <section className="flex flex-col gap-4 py-10 px-4">
+export default Home;
+
+{
+  /* <section className="flex flex-col gap-4 py-10 px-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Factory Contract State:</h2>
+            <h2 className="text-xl font-semibold">Factory Co	ntract State:</h2>
             <div className="flex items-center gap-2">
               {lastRefreshed && (
                 <span className="text-xs text-gray-500">
@@ -209,10 +149,5 @@ function Home() {
               </div>
             </div>
           )}
-        </section>
-      </div>
-    </div>
-  );
+        </section> */
 }
-
-export default Home;

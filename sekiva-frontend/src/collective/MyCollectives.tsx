@@ -25,15 +25,17 @@ const MyCollectives = () => {
   const [collectives, setCollectives] = useState<CollectiveCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { account, connect } = useAuth();
+  const { account } = useAuth();
   const { getUserMemberships } = useFactoryContract();
   const { getState: getOrganizationState } = useOrganizationContract();
 
   useEffect(() => {
-    if (!account) connect();
-    if (!account) return;
-    getUserMemberships(account.getAddress() as unknown as BlockchainAddress)
-      .then(async (orgs) => {
+    const loadCollectives = async () => {
+      if (!account) return; // Just return if no account, don't try to connect
+      try {
+        const orgs = await getUserMemberships(
+          account.getAddress() as unknown as BlockchainAddress
+        );
         console.log({ orgs });
         const orgIds = orgs.map((addr) => addr.asString());
         const orgsData = await Promise.all(
@@ -56,12 +58,19 @@ const MyCollectives = () => {
         );
         setCollectives(collectivesData);
         setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("An unknown error occurred");
+        }
+      } finally {
         setLoading(false);
-      });
-  }, [isConnected]);
+      }
+    };
+
+    loadCollectives();
+  }, [account]); // Only depend on account, not isConnected
 
   // Helper function to generate sample data
   // const logoLinks = [

@@ -13,7 +13,7 @@ import {
   castVote,
   computeTally,
   setVoteActive,
-} from "./generated";
+} from "./BallotGenerated";
 import { CLIENT } from "@/AppState";
 
 type ContractError = {
@@ -40,24 +40,23 @@ export class BallotApi {
   }
 
   async getState(): Promise<BallotState> {
-    const contract = await CLIENT.getContractData(
-      this.address.asString(),
-      true
+    const response = await fetch(
+      `https://node1.testnet.partisiablockchain.com/shards/Shard2/blockchain/contracts/${this.address.asString()}`
+    ).then((res) => res.json());
+
+    if (!response?.serializedContract?.openState?.openState?.data) {
+      throw new Error("No contract data");
+    }
+
+    console.log({ ballotContractData: response });
+
+    const stateBuffer = Buffer.from(
+      response.serializedContract.openState.openState.data,
+      "base64"
     );
-    console.log("Raw contract data:", contract);
-    if (!contract || !contract.serializedContract)
-      throw new Error("Unable to get state bytes");
-    const base64 =
-      typeof contract.serializedContract === "string"
-        ? contract.serializedContract
-        : (contract.serializedContract as { data?: string }).data;
-    if (!base64) throw new Error("No serialized contract data");
-    console.log("serializedContract (base64):", base64);
-    console.log("base64 length:", base64.length);
-    const bytes = Buffer.from(base64, "base64");
-    console.log("Buffer length:", bytes.length);
-    console.log("First few bytes:", bytes.slice(0, 10));
-    return deserializeState(bytes);
+    const state = deserializeState(stateBuffer);
+    console.log({ ballotState: state });
+    return state;
   }
 
   async initialize(

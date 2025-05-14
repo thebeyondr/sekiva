@@ -261,7 +261,6 @@ export function castVote(): SecretInputBuilder<number> {
     AbiBitOutput.serialize((_out) => {
       _out.writeI8(secret_input_lambda);
     });
-
   return new SecretInputBuilder<number>(_publicRpc, _secretInput);
 }
 

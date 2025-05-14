@@ -17,33 +17,44 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { useBallot } from "@/hooks/useBallots";
-import { useBallotVote } from "@/hooks/useBallotVote";
 import { getBallotStatus } from "../lib/ballotUtils";
+import { useBallotContract } from "@/hooks/useBallotContract";
 import { BallotStatusD } from "@/contracts/ballot/BallotGenerated";
-import { useSetBallotActive } from "@/hooks/useSetBallotActive";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const BallotPage = () => {
   const { organizationId, ballotId } = useParams();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("details");
+  const queryClient = useQueryClient();
 
-  const { state: ballot, loading, error } = useBallot(ballotId || "");
-  const { mutate: castVote, isPending: isVoting } = useBallotVote(
-    ballotId || ""
-  );
-  const { mutate: setActive, isPending: isSettingActive } = useSetBallotActive(
-    ballotId || ""
-  );
+  const { getState, castVote, setBallotActive } = useBallotContract();
 
-  const handleVote = () => {
-    if (selectedOption === null) return;
-    castVote(selectedOption);
-  };
+  const {
+    data: ballot,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: ["ballot", ballotId],
+    queryFn: () => getState(ballotId || ""),
+    enabled: !!ballotId,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  });
 
-  const handleSetActive = () => {
-    setActive();
-  };
+  const { mutate: handleVote, isPending: isVoting } = useMutation({
+    mutationFn: (choice: number) => castVote(ballotId || "", choice),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotId] });
+    },
+  });
+
+  const { mutate: handleSetActive, isPending: isSettingActive } = useMutation({
+    mutationFn: () => setBallotActive(ballotId || ""),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotId] });
+    },
+  });
 
   const handleStartTally = () => {
     // TODO: Implement tally computation
@@ -67,6 +78,17 @@ const BallotPage = () => {
   if (!ballot) return null;
 
   const ballotStatus = getBallotStatus(ballot.status);
+
+  // Helper function to calculate vote percentage
+  const calculateVotePercentage = (votes: number, total: number) => {
+    if (total === 0) return 0;
+    return (votes / total) * 100;
+  };
+
+  // Calculate total votes
+  const totalVotes = ballot.tally
+    ? Object.values(ballot.tally).reduce((a, b) => a + b, 0)
+    : 0;
 
   return (
     <div className="min-h-screen bg-sk-yellow-light">
@@ -94,7 +116,8 @@ const BallotPage = () => {
             <Card className="border-2 border-black p-8">
               <div className="bg-red-50 border border-red-200 p-4 rounded">
                 <p className="text-red-500 font-semibold">
-                  Error: {error.message}
+                  Error:{" "}
+                  {error instanceof Error ? error.message : String(error)}
                 </p>
               </div>
             </Card>
@@ -167,7 +190,7 @@ const BallotPage = () => {
                     <TabsContent value="details" className="m-0 space-y-4">
                       <h2 className="text-xl font-semibold">Ballot Options</h2>
                       <div className="space-y-3">
-                        {ballot.options.map((option, index) => (
+                        {ballot.options.map((option: string, index: number) => (
                           <div
                             key={index}
                             className="p-4 border border-gray-200 rounded-md"
@@ -179,16 +202,12 @@ const BallotPage = () => {
                                   <div
                                     className="h-full bg-blue-500"
                                     style={{
-                                      width: `${
-                                        (ballot.tally[
+                                      width: `${calculateVotePercentage(
+                                        ballot.tally[
                                           `option${index}` as keyof typeof ballot.tally
-                                        ] /
-                                          Object.values(ballot.tally).reduce(
-                                            (a, b) => a + b,
-                                            0
-                                          )) *
-                                        100
-                                      }%`,
+                                        ] as number,
+                                        totalVotes
+                                      )}%`,
                                     }}
                                   ></div>
                                 </div>
@@ -234,36 +253,38 @@ const BallotPage = () => {
                             Cast Your Vote
                           </h2>
                           <div className="space-y-3">
-                            {ballot.options.map((option, index) => (
-                              <div
-                                key={index}
-                                className={`p-4 border-2 rounded-md cursor-pointer transition-all ${
-                                  selectedOption === index
-                                    ? "border-black bg-blue-50"
-                                    : "border-gray-200 hover:border-gray-300"
-                                }`}
-                                onClick={() => setSelectedOption(index)}
-                              >
-                                <div className="flex items-center">
-                                  <div
-                                    className={`w-5 h-5 border-2 rounded-full mr-3 flex items-center justify-center ${
-                                      selectedOption === index
-                                        ? "border-black"
-                                        : "border-gray-400"
-                                    }`}
-                                  >
-                                    {selectedOption === index && (
-                                      <div className="w-3 h-3 bg-black rounded-full"></div>
-                                    )}
+                            {ballot.options.map(
+                              (option: string, index: number) => (
+                                <div
+                                  key={index}
+                                  className={`p-4 border-2 rounded-md cursor-pointer transition-all ${
+                                    selectedOption === index
+                                      ? "border-black bg-blue-50"
+                                      : "border-gray-200 hover:border-gray-300"
+                                  }`}
+                                  onClick={() => setSelectedOption(index)}
+                                >
+                                  <div className="flex items-center">
+                                    <div
+                                      className={`w-5 h-5 border-2 rounded-full mr-3 flex items-center justify-center ${
+                                        selectedOption === index
+                                          ? "border-black"
+                                          : "border-gray-400"
+                                      }`}
+                                    >
+                                      {selectedOption === index && (
+                                        <div className="w-3 h-3 bg-black rounded-full"></div>
+                                      )}
+                                    </div>
+                                    <p>{option}</p>
                                   </div>
-                                  <p>{option}</p>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            )}
                           </div>
                           <div className="pt-4">
                             <Button
-                              onClick={handleVote}
+                              onClick={() => handleVote(selectedOption || 0)}
                               disabled={selectedOption === null || isVoting}
                               className="w-full sm:w-auto"
                             >
@@ -315,7 +336,7 @@ const BallotPage = () => {
                       <Button
                         variant="outline"
                         className="border-2 border-black hover:bg-gray-50"
-                        onClick={handleSetActive}
+                        onClick={() => handleSetActive()}
                         disabled={isSettingActive}
                       >
                         {!isSettingActive && (

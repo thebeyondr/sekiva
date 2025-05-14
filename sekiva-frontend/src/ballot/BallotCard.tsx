@@ -6,33 +6,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { ArrowRightIcon, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router";
-
-export type BallotStatus = "active" | "completed" | "pending";
-
-export interface BallotCardProps {
-  id: string;
-  title: string;
-  description: string;
-  status: BallotStatus;
-  voteCount: number;
-  timeInfo: string;
-  contractAddress: BlockchainAddress | string;
-  organizationId: string;
-  index?: number; // Used for alternating colors in the geometric shapes
-  options: string[];
-  tally?: {
-    option0: number;
-    option1: number;
-    option2: number;
-    option3: number;
-    option4: number;
-  };
-  winningOption?: number;
-  hasVoted: boolean;
-}
+import { BallotCardProps } from "../lib/ballotUtils";
 
 const BallotCard = ({
   id,
@@ -50,7 +26,7 @@ const BallotCard = ({
   hasVoted,
 }: BallotCardProps) => {
   // Determine status styling
-  const getStatusStyles = (status: BallotStatus) => {
+  const getStatusStyles = (status: BallotCardProps["status"]) => {
     switch (status) {
       case "active":
         return "bg-green-200 text-black";

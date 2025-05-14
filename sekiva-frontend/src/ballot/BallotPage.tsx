@@ -8,104 +8,65 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeftIcon, CheckIcon, PlusIcon, TimerIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  Loader2,
+  PlusIcon,
+  TimerIcon,
+} from "lucide-react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
-
-// Sample ballot types and data
-export type BallotStatus = "active" | "completed" | "pending";
-
-interface BallotOption {
-  id: string;
-  text: string;
-  voteCount?: number;
-}
-
-interface BallotDetails {
-  id: string;
-  title: string;
-  description: string;
-  status: BallotStatus;
-  createdAt: string;
-  endDate: string;
-  options: BallotOption[];
-  voteCount: number;
-  organizationId: string;
-  isAdmin: boolean; // In real app, would be determined from contract
-}
+import { useBallot } from "@/hooks/useBallots";
+import { useBallotVote } from "@/hooks/useBallotVote";
+import { getBallotStatus } from "../lib/ballotUtils";
+import { BallotStatusD } from "@/contracts/ballot/BallotGenerated";
+import { useSetBallotActive } from "@/hooks/useSetBallotActive";
 
 const BallotPage = () => {
   const { organizationId, ballotId } = useParams();
-  const [ballot, setBallot] = useState<BallotDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("details");
 
-  const handleError = (errorMessage: string) => {
-    setError(errorMessage);
-    setLoading(false);
+  const { state: ballot, loading, error } = useBallot(ballotId || "");
+  const { mutate: castVote, isPending: isVoting } = useBallotVote(
+    ballotId || ""
+  );
+  const { mutate: setActive, isPending: isSettingActive } = useSetBallotActive(
+    ballotId || ""
+  );
+
+  const handleVote = () => {
+    if (selectedOption === null) return;
+    castVote(selectedOption);
   };
 
-  useEffect(() => {
-    // Simulate loading ballot data
-    setLoading(true);
-    setError(null);
+  const handleSetActive = () => {
+    setActive();
+  };
 
-    try {
-      setTimeout(() => {
-        // Mock data - in a real app this would come from the blockchain
-        const mockBallot: BallotDetails = {
-          id: ballotId || "unknown",
-          title: "Community Fund Allocation Q4",
-          description:
-            "This ballot will determine how we allocate our community treasury for the next quarter. Please review the proposals carefully and cast your vote based on which initiative you believe will provide the most value to our organization.",
-          status: "active",
-          createdAt: "2023-11-10",
-          endDate: "2023-12-10",
-          voteCount: 24,
-          organizationId: organizationId || "",
-          options: [
-            { id: "option-1", text: "Developer Grants (40% allocation)" },
-            { id: "option-2", text: "Community Events (30% allocation)" },
-            { id: "option-3", text: "Marketing Initiatives (20% allocation)" },
-            { id: "option-4", text: "Reserve Fund (10% allocation)" },
-          ],
-          isAdmin: true, // For demo purposes
-        };
-        setBallot(mockBallot);
-        setLoading(false);
-      }, 1000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      handleError(errorMessage);
-    }
-  }, [ballotId, organizationId]);
+  const handleStartTally = () => {
+    // TODO: Implement tally computation
+    alert("Starting tally computation...");
+  };
 
   // Color variants for the geometric accents
-  const getStatusColor = (status: BallotStatus) => {
+  const getStatusColor = (status: BallotStatusD) => {
     switch (status) {
-      case "active":
+      case BallotStatusD.Active:
         return "bg-green-200";
-      case "completed":
+      case BallotStatusD.Completed:
         return "bg-gray-200";
-      case "pending":
+      case BallotStatusD.Tallying:
         return "bg-amber-100";
       default:
         return "bg-blue-100";
     }
   };
 
-  const handleVote = () => {
-    if (!selectedOption) return;
-    // In a real app, this would call the contract to register the vote
-    alert(`Vote cast for option: ${selectedOption}`);
-  };
+  if (!ballot) return null;
 
-  const handleStartTally = () => {
-    // In a real app, this would call the contract to start the tally computation
-    alert("Starting tally computation...");
-  };
+  const ballotStatus = getBallotStatus(ballot.status);
 
   return (
     <div className="min-h-screen bg-sk-yellow-light">
@@ -113,17 +74,15 @@ const BallotPage = () => {
         <NavBar />
 
         <section className="container mx-auto max-w-4xl py-6">
-          {/* Back Button */}
           <Link
             to={`/collectives/${organizationId}`}
-            className="flex items-center gap-2 mb-8 hover:underline"
+            className="flex items-center gap-2 mb-8 hover:underline justify-self-start"
           >
             <ArrowLeftIcon className="w-4 h-4" />
             <span>Back to organization</span>
           </Link>
 
           {loading ? (
-            // Loading state
             <Card className="border-2 border-black p-8">
               <div className="animate-pulse space-y-4">
                 <div className="h-8 bg-gray-200 rounded w-3/4"></div>
@@ -132,21 +91,20 @@ const BallotPage = () => {
               </div>
             </Card>
           ) : error ? (
-            // Error state
             <Card className="border-2 border-black p-8">
               <div className="bg-red-50 border border-red-200 p-4 rounded">
-                <p className="text-red-500 font-semibold">Error: {error}</p>
+                <p className="text-red-500 font-semibold">
+                  Error: {error.message}
+                </p>
               </div>
             </Card>
-          ) : ballot ? (
-            // Ballot content
+          ) : (
             <div className="space-y-6">
               {/* Ballot Header Card */}
               <Card className="relative border-2 border-black overflow-hidden">
-                {/* Geometric accent shapes */}
                 <div
                   className={`absolute -right-6 -top-6 w-24 h-24 ${getStatusColor(
-                    ballot.status
+                    ballot.status?.discriminant || BallotStatusD.Tallying
                   )} rotate-12 z-0`}
                 ></div>
                 <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-blue-200 z-0"></div>
@@ -158,14 +116,14 @@ const BallotPage = () => {
                     </CardTitle>
                     <span
                       className={`inline-flex items-center px-4 py-1.5 uppercase text-sm font-semibold ${
-                        ballot.status === "active"
+                        ballotStatus === "active"
                           ? "bg-green-200"
-                          : ballot.status === "completed"
+                          : ballotStatus === "completed"
                             ? "bg-gray-800 text-white"
                             : "bg-amber-100"
                       }`}
                     >
-                      {ballot.status}
+                      {ballotStatus}
                     </span>
                   </div>
                   <CardDescription className="text-gray-700 max-w-3xl mt-2">
@@ -176,16 +134,8 @@ const BallotPage = () => {
                 <CardContent className="relative z-10">
                   <div className="flex flex-wrap gap-4 text-sm">
                     <div className="flex items-center bg-gray-100 px-3 py-1.5">
-                      <span className="font-medium">Created:</span>
-                      <span className="ml-2">{ballot.createdAt}</span>
-                    </div>
-                    <div className="flex items-center bg-gray-100 px-3 py-1.5">
-                      <span className="font-medium">Ends:</span>
-                      <span className="ml-2">{ballot.endDate}</span>
-                    </div>
-                    <div className="flex items-center bg-gray-100 px-3 py-1.5">
                       <span className="font-medium">Votes:</span>
-                      <span className="ml-2">{ballot.voteCount}</span>
+                      <span className="ml-2">{ballot.voters.length}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -217,28 +167,38 @@ const BallotPage = () => {
                     <TabsContent value="details" className="m-0 space-y-4">
                       <h2 className="text-xl font-semibold">Ballot Options</h2>
                       <div className="space-y-3">
-                        {ballot.options.map((option) => (
+                        {ballot.options.map((option, index) => (
                           <div
-                            key={option.id}
+                            key={index}
                             className="p-4 border border-gray-200 rounded-md"
                           >
-                            <p>{option.text}</p>
-                            {ballot.status === "completed" && (
+                            <p>{option}</p>
+                            {ballotStatus === "completed" && ballot.tally && (
                               <div className="mt-2 flex items-center">
                                 <div className="h-2 bg-gray-200 flex-grow rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-blue-500"
                                     style={{
                                       width: `${
-                                        ((option.voteCount || 0) /
-                                          ballot.voteCount) *
+                                        (ballot.tally[
+                                          `option${index}` as keyof typeof ballot.tally
+                                        ] /
+                                          Object.values(ballot.tally).reduce(
+                                            (a, b) => a + b,
+                                            0
+                                          )) *
                                         100
                                       }%`,
                                     }}
                                   ></div>
                                 </div>
                                 <span className="ml-2 text-sm font-medium">
-                                  {option.voteCount || 0} votes
+                                  {
+                                    ballot.tally[
+                                      `option${index}` as keyof typeof ballot.tally
+                                    ]
+                                  }{" "}
+                                  votes
                                 </span>
                               </div>
                             )}
@@ -252,11 +212,11 @@ const BallotPage = () => {
                           Contract Information
                         </h3>
                         <p className="text-sm font-mono bg-gray-100 p-3 rounded">
-                          {ballot.id}
+                          {ballotId}
                         </p>
                         <div className="mt-3 flex gap-3">
                           <a
-                            href={`https://browser.testnet.partisiablockchain.com/contracts/${ballot.id}?tab=state`}
+                            href={`https://browser.testnet.partisiablockchain.com/contracts/${ballotId}?tab=state`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 text-sm hover:underline"
@@ -268,35 +228,35 @@ const BallotPage = () => {
                     </TabsContent>
 
                     <TabsContent value="vote" className="m-0">
-                      {ballot.status === "active" ? (
+                      {ballotStatus === "active" ? (
                         <div className="space-y-6">
                           <h2 className="text-xl font-semibold">
                             Cast Your Vote
                           </h2>
                           <div className="space-y-3">
-                            {ballot.options.map((option) => (
+                            {ballot.options.map((option, index) => (
                               <div
-                                key={option.id}
+                                key={index}
                                 className={`p-4 border-2 rounded-md cursor-pointer transition-all ${
-                                  selectedOption === option.id
+                                  selectedOption === index
                                     ? "border-black bg-blue-50"
                                     : "border-gray-200 hover:border-gray-300"
                                 }`}
-                                onClick={() => setSelectedOption(option.id)}
+                                onClick={() => setSelectedOption(index)}
                               >
                                 <div className="flex items-center">
                                   <div
                                     className={`w-5 h-5 border-2 rounded-full mr-3 flex items-center justify-center ${
-                                      selectedOption === option.id
+                                      selectedOption === index
                                         ? "border-black"
                                         : "border-gray-400"
                                     }`}
                                   >
-                                    {selectedOption === option.id && (
+                                    {selectedOption === index && (
                                       <div className="w-3 h-3 bg-black rounded-full"></div>
                                     )}
                                   </div>
-                                  <p>{option.text}</p>
+                                  <p>{option}</p>
                                 </div>
                               </div>
                             ))}
@@ -304,15 +264,15 @@ const BallotPage = () => {
                           <div className="pt-4">
                             <Button
                               onClick={handleVote}
-                              disabled={!selectedOption}
+                              disabled={selectedOption === null || isVoting}
                               className="w-full sm:w-auto"
                             >
                               <CheckIcon className="w-4 h-4 mr-2" />
-                              Submit Vote
+                              {isVoting ? "Submitting..." : "Submit Vote"}
                             </Button>
                           </div>
                         </div>
-                      ) : ballot.status === "completed" ? (
+                      ) : ballotStatus === "completed" ? (
                         <div className="bg-gray-50 p-6 rounded-md text-center">
                           <p className="text-lg">
                             This ballot has concluded. View the results in the
@@ -333,7 +293,7 @@ const BallotPage = () => {
               </Card>
 
               {/* Admin Actions */}
-              {ballot.isAdmin && (
+              {ballot.administrator && (
                 <Card className="border-2 border-black">
                   <CardHeader>
                     <CardTitle className="text-xl font-semibold">
@@ -341,7 +301,7 @@ const BallotPage = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {ballot.status === "active" && (
+                    {ballotStatus === "active" && (
                       <Button
                         onClick={handleStartTally}
                         variant="outline"
@@ -351,13 +311,25 @@ const BallotPage = () => {
                         Start Tally Computation
                       </Button>
                     )}
-                    {ballot.status === "pending" && (
+                    {ballotStatus === "pending" && (
                       <Button
                         variant="outline"
                         className="border-2 border-black hover:bg-gray-50"
+                        onClick={handleSetActive}
+                        disabled={isSettingActive}
                       >
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        Activate Ballot
+                        {!isSettingActive && (
+                          <>
+                            <PlusIcon className="w-4 h-4 mr-2" />
+                            Activate Ballot
+                          </>
+                        )}
+                        {isSettingActive && (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Activating...
+                          </>
+                        )}
                       </Button>
                     )}
                     <p className="text-sm text-gray-500 mt-2">
@@ -368,10 +340,6 @@ const BallotPage = () => {
                 </Card>
               )}
             </div>
-          ) : (
-            <Card className="border-2 border-black p-8">
-              <p>No ballot found with the provided ID.</p>
-            </Card>
           )}
         </section>
       </div>

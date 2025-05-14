@@ -10,26 +10,31 @@ import CollectiveDetail from "@/collective/CollectiveDetails.tsx";
 import { AuthProvider } from "@/auth/AuthProvider.tsx";
 import NewBallot from "@/ballot/NewBallot.tsx";
 import BallotPage from "@/ballot/BallotPage.tsx";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 setupPolyfills();
 
+const queryClient = new QueryClient();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route index element={<Home />} />
-          <Route path="collectives">
-            <Route index element={<MyCollectives />} />
-            <Route path="new" element={<NewCollectivePage />} />
-            <Route path=":organizationId" element={<CollectiveDetail />} />
-            <Route path=":organizationId/ballots">
-              <Route path="new" element={<NewBallot />} />
-              <Route path=":ballotId" element={<BallotPage />} />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route index element={<Home />} />
+            <Route path="collectives">
+              <Route index element={<MyCollectives />} />
+              <Route path="new" element={<NewCollectivePage />} />
+              <Route path=":organizationId" element={<CollectiveDetail />} />
+              <Route path=":organizationId/ballots">
+                <Route path="new" element={<NewBallot />} />
+                <Route path=":ballotId" element={<BallotPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   </StrictMode>
 );

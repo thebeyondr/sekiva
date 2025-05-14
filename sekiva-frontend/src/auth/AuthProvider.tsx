@@ -2,14 +2,7 @@ import { useState, useEffect, ReactNode } from "react";
 import { connectMpcWallet } from "@/shared/MpcWalletSignatureProvider";
 import { AuthContext } from "@/auth/AuthContext";
 import { SessionManager } from "./SessionManager";
-import {
-  SenderAuthentication,
-  BlockchainTransactionClient,
-} from "@partisiablockchain/blockchain-api-transaction-client";
-import { SekivaFactoryClient } from "@/contracts/factory/client";
-import { Client, RealZkClient } from "@partisiablockchain/zk-client";
-import { createBallotClient, BallotId } from "@/lib/ballot";
-import { CLIENT, TESTNET_URL } from "@/partisia-config";
+import { SenderAuthentication } from "@partisiablockchain/blockchain-api-transaction-client";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Wallet state
@@ -22,18 +15,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     SessionManager.hasWalletConnection()
   );
   const [isConnected, setIsConnected] = useState<boolean>(false);
-
-  // Blockchain state
   const [account, setAccount] = useState<SenderAuthentication | undefined>(
     undefined
   );
-  const [factoryClient, setFactoryClient] = useState<
-    SekivaFactoryClient | undefined
-  >(undefined);
-  const [factoryAddress, setFactoryAddress] = useState<string | undefined>(
-    undefined
-  );
-  const [zkClient, setZkClient] = useState<RealZkClient | undefined>(undefined);
 
   // Effect to keep isConnected in sync with state
   useEffect(() => {
@@ -78,60 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [account]);
 
-  // Effect to initialize factory client when account or contract address changes
-  useEffect(() => {
-    if (account && factoryAddress) {
-      try {
-        const transactionClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
-        setFactoryClient(new SekivaFactoryClient(CLIENT, transactionClient));
-      } catch (error) {
-        console.error("Error updating factory client:", error);
-        setFactoryClient(undefined);
-      }
-    } else {
-      setFactoryClient(undefined);
-    }
-  }, [account, factoryAddress]);
-
-  // Initialize ZK client when account or contract address changes
-  useEffect(() => {
-    const initZkClient = async () => {
-      console.log("[initZkClient] Checking dependencies:", {
-        hasAccount: !!account,
-        hasContractAddress: !!factoryAddress,
-        accountAddress: account?.getAddress(),
-        contractAddress: factoryAddress,
-      });
-
-      if (!account || !factoryAddress) {
-        console.log("[initZkClient] Missing dependencies, clearing clients");
-        setZkClient(undefined);
-        return;
-      }
-
-      try {
-        console.log(
-          "[initZkClient] Creating ZK client for contract:",
-          factoryAddress
-        );
-        const client = RealZkClient.create(
-          factoryAddress,
-          new Client(TESTNET_URL)
-        );
-        setZkClient(client);
-        console.log("[initZkClient] ZK client created successfully");
-      } catch (error) {
-        console.error("[initZkClient] Error creating ZK client:", error);
-        setZkClient(undefined);
-      }
-    };
-
-    initZkClient();
-  }, [account, factoryAddress]);
-
   const connect = async () => {
     if (isConnecting) return;
 
@@ -149,27 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setWalletAddress(address);
         setIsAuthenticated(true);
         setIsConnected(true);
-
-        // Initialize clients if we have a contract address
-        if (factoryAddress) {
-          try {
-            const transactionClient = BlockchainTransactionClient.create(
-              TESTNET_URL,
-              userAccount
-            );
-            setFactoryClient(
-              new SekivaFactoryClient(CLIENT, transactionClient)
-            );
-
-            const zkClient = RealZkClient.create(
-              factoryAddress,
-              new Client(TESTNET_URL)
-            );
-            setZkClient(zkClient);
-          } catch (error) {
-            console.error("Error initializing clients after connect:", error);
-          }
-        }
       }
     } catch (error: unknown) {
       console.error("Wallet connection error:", error);
@@ -185,53 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       setAccount(undefined);
-      setFactoryClient(undefined);
-      setFactoryAddress(undefined);
       setWalletAddress(null);
       setIsAuthenticated(false);
       setIsConnected(false);
       SessionManager.clearWalletConnection();
     } finally {
       setIsDisconnecting(false);
-    }
-  };
-
-  const handleSetContractAddress = (address: string) => {
-    setFactoryAddress(address);
-  };
-
-  const getFactoryClient = () => factoryClient;
-
-  const getBallotClient = (ballotId: BallotId) => {
-    if (!account || !zkClient || !walletAddress) {
-      console.log("[getBallotClient] Missing dependencies:", {
-        hasAccount: !!account,
-        hasZkClient: !!zkClient,
-        hasWalletAddress: !!walletAddress,
-        accountAddress: account?.getAddress(),
-        walletAddress,
-        ballotId,
-      });
-      return undefined;
-    }
-
-    try {
-      const transactionClient = BlockchainTransactionClient.create(
-        TESTNET_URL,
-        account
-      );
-      const zkClient = RealZkClient.create(ballotId, new Client(TESTNET_URL));
-      const client = createBallotClient(
-        ballotId,
-        transactionClient,
-        zkClient,
-        walletAddress
-      );
-      console.log("[getBallotClient] Created client for ballot:", ballotId);
-      return client;
-    } catch (error) {
-      console.error("[getBallotClient] Error creating ballot client:", error);
-      return undefined;
     }
   };
 
@@ -246,10 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isConnected,
         isDisconnected: !isConnected,
         account: account?.getAddress(),
-        contractAddress: factoryAddress,
-        factoryClient: factoryClient ? "initialized" : "undefined",
-        walletSession: SessionManager.getPartiWalletSession(),
-        zkClient: zkClient ? "initialized" : "undefined",
       });
     }
   }, [
@@ -259,9 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isDisconnecting,
     isConnected,
     account,
-    factoryAddress,
-    factoryClient,
-    zkClient,
   ]);
 
   return (
@@ -274,13 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDisconnected: !isConnected,
         isAuthenticated,
         account,
-        factoryClient,
-        contractAddress: factoryAddress,
         connect,
         disconnect,
-        setContractAddress: handleSetContractAddress,
-        getFactoryClient,
-        getBallotClient,
       }}
     >
       {children}

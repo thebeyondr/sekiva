@@ -4,13 +4,14 @@ import NavBar from "@/components/shared/NavBar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrganizationClient } from "@/contracts/organization/client";
-import { OrganizationState } from "@/contracts/organization/generated";
+import { OrganizationState } from "@/contracts/organization/OrganizationGenerated";
 import { SekivaFactoryClient } from "@/contracts/factory/client";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import AboutTab from "./AboutTab";
 import MembersTab from "./MembersTab";
+import { useBallots } from "@/hooks/useBallots";
 
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`bg-gray-200 animate-pulse rounded ${className}`}></div>
@@ -25,13 +26,19 @@ const OrganizationDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState("ballots");
-  const [ballots, setBallots] = useState<BlockchainAddress[]>([]);
+  const [ballotAddresses, setBallotAddresses] = useState<BlockchainAddress[]>(
+    []
+  );
 
-  console.log("organizationId", organizationId);
+  // Add ballot state management at page level
+  const {
+    states: ballotStates,
+    loading: ballotsLoading,
+    error: ballotsError,
+  } = useBallots(ballotAddresses.map((addr) => addr.asString()));
 
   const fetchOrganizationData = async () => {
     if (!organizationId) return;
-
     setLoading(true);
     setError(null);
 
@@ -40,47 +47,21 @@ const OrganizationDetail = () => {
       const orgClient = new OrganizationClient(CLIENT, orgAddress);
       const factoryClient = new SekivaFactoryClient(CLIENT);
 
-      // Get organization state and ballot addresses
-      const [orgState] = await Promise.all([orgClient.getState()]);
+      const [orgState, orgBallotAddresses] = await Promise.all([
+        orgClient.getState(),
+        factoryClient.getOrganizationBallots(orgAddress),
+      ]);
+
       setOrganization(orgState);
-
-      // Get ballots for this organization
-      const orgBallotAddresses =
-        await factoryClient.getOrganizationBallots(orgAddress);
-      console.log("Raw ballot addresses from factory:", orgBallotAddresses);
-
-      // Filter out invalid addresses
-      const validBallotAddresses = orgBallotAddresses.filter(
-        (addr): addr is BlockchainAddress => {
-          if (!addr) {
-            console.warn("Null ballot address found");
-            return false;
-          }
-          const addrStr = addr.asString();
-          if (!addrStr || addrStr.length === 0) {
-            console.warn("Empty ballot address found");
-            return false;
-          }
-          if (addrStr.length !== 42) {
-            console.warn(
-              `Invalid ballot address length: ${addrStr} (${addrStr.length})`
-            );
-            return false;
-          }
-          return true;
-        }
+      setBallotAddresses(
+        orgBallotAddresses.filter(
+          (addr) => addr && addr.asString().length === 42
+        )
       );
-
-      console.log(
-        "Valid ballot addresses:",
-        validBallotAddresses.map((a) => a.asString())
-      );
-      setBallots(validBallotAddresses);
       setLastRefreshed(new Date());
     } catch (err) {
       console.error("Error fetching organization data:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -211,7 +192,9 @@ const OrganizationDetail = () => {
                   <TabsContent value="ballots" className="m-0">
                     <BallotsTab
                       organizationId={organizationId || ""}
-                      ballots={ballots}
+                      ballotStates={ballotStates}
+                      loading={ballotsLoading}
+                      error={ballotsError?.message || null}
                     />
                   </TabsContent>
                   <TabsContent value="members" className="m-0">

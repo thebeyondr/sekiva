@@ -4,19 +4,18 @@ import { collectiveFormOpts } from "./FormOptions";
 import { MembersFields } from "./MembersFields";
 import { useCollectiveForm } from "./useCollectiveForm";
 import { useState } from "react";
-import { OrganizationInfo } from "@/contracts/factory/generated";
-import { useNavigate } from "react-router";
+import { OrganizationInfo } from "@/contracts/factory/SekivaFactoryGenerated";
+
 import { useAuth } from "@/auth/useAuth";
-import { FactoryApi, isConnected } from "@/AppState";
+import { useFactoryCreateOrg } from "@/hooks/useFactoryCreateOrg";
 
 const FormSteps = () => {
   const [currStep, setCurrStep] = useState<"define" | "members">("define");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-
+  const { isAuthenticated, isConnected, connect } = useAuth();
+  const { mutate: createOrg, isPending: isCreatingOrg } = useFactoryCreateOrg();
   const form = useCollectiveForm({
     ...collectiveFormOpts,
     onSubmit: async ({ value }) => {
@@ -26,8 +25,9 @@ const FormSteps = () => {
         setSuccessMessage(null);
 
         // Check if user is authenticated
-        if (!isAuthenticated || !isConnected()) {
-          throw new Error("You need to connect your wallet first");
+        if (!isAuthenticated || !isConnected) {
+          // throw new Error("You need to connect your wallet first");
+          connect();
         }
 
         // Format the organization info
@@ -42,24 +42,12 @@ const FormSteps = () => {
         };
 
         console.log("Deploying organization with info:", orgInfo);
-
-        // Get the factory API directly from AppState
-        const factoryApi = FactoryApi();
-
-        // Deploy the organization
-        const result = await factoryApi.deployOrganization(orgInfo);
-
-        console.log("Organization deployed! Transaction:", result);
+        createOrg(orgInfo);
 
         // Show success message
         setSuccessMessage(
           "Your collective has been created successfully. You'll be redirected to the home page where you can refresh to see your new collective once the blockchain transaction is confirmed."
         );
-
-        // Navigate to the home page or collectives page after a short delay
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
       } catch (err) {
         console.error("Error deploying organization:", err);
         setError(err instanceof Error ? err.message : String(err));
@@ -167,7 +155,7 @@ const FormSteps = () => {
             }
             className="w-full mt-4"
           >
-            {isSubmitting ? "Creating..." : "create collective"}
+            {isCreatingOrg ? "creating..." : "create collective"}
           </Button>
         </div>
       )}

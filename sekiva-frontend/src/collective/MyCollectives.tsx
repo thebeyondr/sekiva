@@ -1,16 +1,13 @@
-import { CLIENT } from "@/AppState";
 import { useAuth } from "@/auth/useAuth";
 import NavBar from "@/components/shared/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  SekivaFactoryBasicState,
-  SekivaFactoryClient,
-} from "@/contracts/factory/client";
+import { useFactoryContract } from "@/hooks/useFactoryContract";
+import { useOrganizationContract } from "@/hooks/useOrganizationContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
+import { PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { PlusIcon } from "lucide-react";
 import CollectiveCard from "./CollectiveCard";
 
 // Sample organization data for display purposes
@@ -25,109 +22,110 @@ export interface CollectiveCardData {
 
 const MyCollectives = () => {
   const { isConnected } = useAuth();
-  const [factoryState, setFactoryState] =
-    useState<SekivaFactoryBasicState | null>(null);
   const [collectives, setCollectives] = useState<CollectiveCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { account, connect } = useAuth();
+  const { getUserMemberships } = useFactoryContract();
+  const { getState: getOrganizationState } = useOrganizationContract();
 
-  // Fetch factory state
   useEffect(() => {
-    const fetchFactoryState = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Create factory client using the global CLIENT instance
-        const factoryClient = new SekivaFactoryClient(CLIENT);
-
-        // Get factory state
-        const state = await factoryClient.getState();
-        setFactoryState(state);
-
-        // Generate sample data for display purposes
-        // In a real app, we would fetch actual data for each organization
-        const sampleData = generateCollectivesData(state.organizations);
-        setCollectives(sampleData);
-      } catch (err) {
-        console.error("Error fetching factory state:", err);
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        setError(errorMessage);
-      } finally {
+    if (!account) connect();
+    if (!account) return;
+    getUserMemberships(account.getAddress() as unknown as BlockchainAddress)
+      .then(async (orgs) => {
+        console.log({ orgs });
+        const orgIds = orgs.map((addr) => addr.asString());
+        const orgsData = await Promise.all(
+          orgIds.map(async (orgId) => {
+            return await getOrganizationState(
+              BlockchainAddress.fromString(orgId)
+            );
+          })
+        );
+        // Map orgsData to CollectiveCardData
+        const collectivesData: CollectiveCardData[] = orgsData.map(
+          (org, idx) => ({
+            id: orgIds[idx],
+            name: org.name || "Unnamed Collective",
+            description: org.description || "",
+            memberCount: org.members.length + 1, // +1 for the owner
+            bannerImage: org.bannerImage,
+            profileImage: org.profileImage,
+          })
+        );
+        setCollectives(collectivesData);
         setLoading(false);
-      }
-    };
-
-    if (isConnected) {
-      fetchFactoryState();
-    } else {
-      setLoading(false);
-    }
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, [isConnected]);
 
   // Helper function to generate sample data
-  const logoLinks = [
-    "https://i.pinimg.com/736x/70/3a/90/703a90787dc3c4082339f683a3ad888b.jpg",
-    "https://i.pinimg.com/736x/90/0c/7b/900c7b79813d50e36bd7bcbc1c0d9857.jpg",
-    "https://i.pinimg.com/736x/29/db/ce/29dbceff6b775745ad39eeec91388652.jpg",
-  ];
-  const bannerLinks = [
-    "https://i.pinimg.com/736x/01/55/b6/0155b60548f26a55a75a785cbe004522.jpg",
-    "https://i.pinimg.com/736x/af/7a/72/af7a724cbf960da1b16b142b19df0aac.jpg",
-    "https://i.pinimg.com/736x/f7/e1/10/f7e110f07b93fa34b7eb4e52627376c9.jpg",
-  ];
-  const generateCollectivesData = (
-    addresses: BlockchainAddress[]
-  ): CollectiveCardData[] => {
-    const names = [
-      "DAO Explorers",
-      "Blockchain Builders",
-      "Web3 Innovators",
-      "Crypto Collective",
-      "DeFi Alliance",
-      "NFT Creators Guild",
-      "Token Engineers",
-    ];
+  // const logoLinks = [
+  //   "https://i.pinimg.com/736x/70/3a/90/703a90787dc3c4082339f683a3ad888b.jpg",
+  //   "https://i.pinimg.com/736x/90/0c/7b/900c7b79813d50e36bd7bcbc1c0d9857.jpg",
+  //   "https://i.pinimg.com/736x/29/db/ce/29dbceff6b775745ad39eeec91388652.jpg",
+  // ];
+  // const bannerLinks = [
+  //   "https://i.pinimg.com/736x/01/55/b6/0155b60548f26a55a75a785cbe004522.jpg",
+  //   "https://i.pinimg.com/736x/af/7a/72/af7a724cbf960da1b16b142b19df0aac.jpg",
+  //   "https://i.pinimg.com/736x/f7/e1/10/f7e110f07b93fa34b7eb4e52627376c9.jpg",
+  // ];
+  // const generateCollectivesData = (
+  //   addresses: BlockchainAddress[]
+  // ): CollectiveCardData[] => {
+  //   const names = [
+  //     "DAO Explorers",
+  //     "Blockchain Builders",
+  //     "Web3 Innovators",
+  //     "Crypto Collective",
+  //     "DeFi Alliance",
+  //     "NFT Creators Guild",
+  //     "Token Engineers",
+  //   ];
 
-    const descriptions = [
-      "A community of explorers pushing the boundaries of decentralized organizations.",
-      "Building the future of blockchain technology one block at a time.",
-      "Innovating at the intersection of web technologies and decentralized systems.",
-      "A collective dedicated to advancing cryptocurrency adoption and education.",
-      "Alliance of DeFi experts working to create more accessible financial tools.",
-      "Guild of artists and developers creating innovative NFT experiences.",
-      "Engineering the token economy of tomorrow through collaborative research.",
-    ];
+  //   const descriptions = [
+  //     "A community of explorers pushing the boundaries of decentralized organizations.",
+  //     "Building the future of blockchain technology one block at a time.",
+  //     "Innovating at the intersection of web technologies and decentralized systems.",
+  //     "A collective dedicated to advancing cryptocurrency adoption and education.",
+  //     "Alliance of DeFi experts working to create more accessible financial tools.",
+  //     "Guild of artists and developers creating innovative NFT experiences.",
+  //     "Engineering the token economy of tomorrow through collaborative research.",
+  //   ];
 
-    // Generate sample data for each address
-    return addresses.map((address, index) => {
-      const randomNameIndex = index % names.length;
-      const randomDescIndex = index % descriptions.length;
-      const memberCount = Math.floor(Math.random() * 50) + 5; // Random between 5-55
-      return {
-        id: address.asString(),
-        name: names[randomNameIndex],
-        description: descriptions[randomDescIndex],
-        memberCount,
-        bannerImage: bannerLinks[index % bannerLinks.length],
-        profileImage: logoLinks[index % logoLinks.length],
-      };
-    });
-  };
+  //   // Generate sample data for each address
+  //   return addresses.map((address, index) => {
+  //     const randomNameIndex = index % names.length;
+  //     const randomDescIndex = index % descriptions.length;
+  //     const memberCount = Math.floor(Math.random() * 50) + 5; // Random between 5-55
+  //     return {
+  //       id: address.asString(),
+  //       name: names[randomNameIndex],
+  //       description: descriptions[randomDescIndex],
+  //       memberCount,
+  //       bannerImage: bannerLinks[index % bannerLinks.length],
+  //       profileImage: logoLinks[index % logoLinks.length],
+  //     };
+  //   });
+  // };
 
   // Add some mock collectives if factory state has none
-  useEffect(() => {
-    if (factoryState && factoryState.organizations.length === 0) {
-      // If no organizations exist, create some sample ones
-      const mockAddresses = Array.from({ length: 5 }, (_, i) =>
-        BlockchainAddress.fromString(
-          `021${i}e54b707bd575ca32e4ab6be5790735661e0e3${i}`
-        )
-      );
-      const sampleData = generateCollectivesData(mockAddresses);
-      setCollectives(sampleData);
-    }
-  }, [factoryState]);
+  // useEffect(() => {
+  //   if (factoryState && factoryState.organizations.length === 0) {
+  //     // If no organizations exist, create some sample ones
+  //     const mockAddresses = Array.from({ length: 5 }, (_, i) =>
+  //       BlockchainAddress.fromString(
+  //         `021${i}e54b707bd575ca32e4ab6be5790735661e0e3${i}`
+  //       )
+  //     );
+  //     const sampleData = generateCollectivesData(mockAddresses);
+  //     setCollectives(sampleData);
+  //   }
+  // }, [factoryState]);
 
   return (
     <div className="min-h-screen bg-sk-yellow-light">
@@ -202,8 +200,11 @@ const MyCollectives = () => {
             </div>
           ) : collectives.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {collectives.map((collective) => (
-                <CollectiveCard key={collective.id} collective={collective} />
+              {collectives.map((collective, idx) => (
+                <CollectiveCard
+                  key={collective.id || idx}
+                  collective={collective}
+                />
               ))}
 
               {/* "Create New" card */}

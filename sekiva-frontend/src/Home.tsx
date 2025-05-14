@@ -17,11 +17,11 @@ function Home() {
               className="w-full h-full"
             />
           </div>
-          <div className="flex-1 flex flex-col justify-center space-y-6 px-4">
-            <h1 className="text-3xl sm:text-4xl xl:text-6xl font-bold tracking-tighter max-w-2xl">
+          <div className="flex-1 flex flex-col justify-center items-center space-y-3 px-4">
+            <h1 className="text-3xl sm:text-4xl xl:text-6xl font-medium tracking-[-0.04em] max-w-2xl text-center">
               Private on-chain ballots for modern collectives
             </h1>
-            <p className="text-lg max-w-xl">
+            <p className="text-lg max-w-xl text-center">
               Build decentralized organizations with secure private voting on{" "}
               <Link
                 to="https://partisiablockchain.com"
@@ -32,7 +32,7 @@ function Home() {
               </Link>
             </p>
 
-            <div className="flex flex-wrap gap-4 pt-4">
+            <div className="flex flex-wrap gap-4 justify-center">
               <Link to="/collectives">
                 <Button
                   variant="secondary"

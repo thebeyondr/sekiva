@@ -33,7 +33,7 @@ const MembersTab = ({ members, owner, administrators }: MembersTabProps) => {
             >
               <div className="flex items-center gap-2">
                 {isOwner(member) && (
-                  <span className="text-lg text-amber-600" title="Owner">
+                  <span className="text-lg text-amber-600 -mt-1" title="Owner">
                     👑
                   </span>
                 )}

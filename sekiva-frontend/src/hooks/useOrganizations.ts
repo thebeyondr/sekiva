@@ -1,12 +1,12 @@
-import { BallotId, getBallotState } from "@/lib/ballot";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { BallotState } from "@/contracts/ballot/BallotGenerated";
+import { getOrganizationState, OrganizationId } from "@/lib/organization";
+import { OrganizationState } from "@/contracts/organization/OrganizationGenerated";
 
-export function useBallot(address: BallotId) {
+export function useOrganization(address: OrganizationId) {
   const query = useQuery({
-    queryKey: ["ballot", address],
-    queryFn: () => getBallotState(address),
+    queryKey: ["organization", address],
+    queryFn: () => getOrganizationState(address),
     staleTime: 30_000, // Consider data fresh for 30s
     gcTime: 5 * 60_000, // Keep unused data in cache for 5min
     retry: (failureCount, error) => {
@@ -26,18 +26,18 @@ export function useBallot(address: BallotId) {
   };
 }
 
-export function useBallots(ids: BallotId[]) {
+export function useOrganizations(ids: OrganizationId[]) {
   const queries = useQueries({
     queries: ids.map((id) => ({
-      queryKey: ["ballot", id],
-      queryFn: () => getBallotState(id),
+      queryKey: ["organization", id],
+      queryFn: () => getOrganizationState(id),
       staleTime: 30_000,
       gcTime: 5 * 60_000,
     })),
   });
 
   const states = useMemo(() => {
-    const map = new Map<BallotId, BallotState>();
+    const map = new Map<OrganizationId, OrganizationState>();
     queries.forEach((query, index) => {
       if (query.data) {
         map.set(ids[index], query.data);

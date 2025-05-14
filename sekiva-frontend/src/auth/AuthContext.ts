@@ -1,18 +1,25 @@
 import { createContext } from "react";
+import { SenderAuthentication } from "@partisiablockchain/blockchain-api-transaction-client";
+import { SekivaFactoryClient } from "@/contracts/factory/client";
+import { BallotClient, BallotId } from "@/lib/ballot";
 
-// Define the context type
 export interface AuthContextType {
   walletAddress: string | null;
   isConnecting: boolean;
   isDisconnecting: boolean;
   isConnected: boolean;
   isDisconnected: boolean;
+  isAuthenticated: boolean;
+  account: SenderAuthentication | undefined;
+  factoryClient: SekivaFactoryClient | undefined;
+  contractAddress: string | undefined;
   connect: () => Promise<void>;
   disconnect: () => void;
-  isAuthenticated: boolean;
+  setContractAddress: (address: string) => void;
+  getFactoryClient: () => SekivaFactoryClient | undefined;
+  getBallotClient: (ballotId: BallotId) => BallotClient | undefined;
 }
 
-// Create and export the context
 export const AuthContext = createContext<AuthContextType | undefined>(
   undefined
 );

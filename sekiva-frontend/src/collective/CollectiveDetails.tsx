@@ -1,17 +1,15 @@
-import { CLIENT } from "@/AppState";
-import BallotsTab from "@/ballot/BallotsTab";
+import { useParams } from "react-router";
+import { BlockchainAddress } from "@partisiablockchain/abi-client";
+import { useQuery } from "@tanstack/react-query";
+import { useOrganizationContract } from "@/hooks/useOrganizationContract";
+import { useOrganizationBallots } from "@/hooks/useOrganizationBallots";
 import NavBar from "@/components/shared/NavBar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { OrganizationClient } from "@/contracts/organization/client";
-import { OrganizationState } from "@/contracts/organization/OrganizationGenerated";
-import { SekivaFactoryClient } from "@/contracts/factory/client";
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { useEffect, useState } from "react";
-import { useParams } from "react-router";
+import BallotsTab from "@/ballot/BallotsTab";
 import AboutTab from "./AboutTab";
 import MembersTab from "./MembersTab";
-import { useBallots } from "@/hooks/useBallots";
+import { useState, useMemo } from "react";
 
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`bg-gray-200 animate-pulse rounded ${className}`}></div>
@@ -19,61 +17,54 @@ const Skeleton = ({ className }: { className: string }) => (
 
 const OrganizationDetail = () => {
   const { organizationId } = useParams();
-  const [organization, setOrganization] = useState<OrganizationState | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState("ballots");
-  const [ballotAddresses, setBallotAddresses] = useState<BlockchainAddress[]>(
-    []
-  );
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  // Add ballot state management at page level
+  const orgAddress = organizationId
+    ? BlockchainAddress.fromString(organizationId)
+    : null;
+  const { getState: getOrgState } = useOrganizationContract();
   const {
-    states: ballotStates,
+    ballots,
     loading: ballotsLoading,
     error: ballotsError,
-  } = useBallots(ballotAddresses.map((addr) => addr.asString()));
+    refresh: refreshBallots,
+  } = useOrganizationBallots(orgAddress!);
 
-  const fetchOrganizationData = async () => {
-    if (!organizationId) return;
-    setLoading(true);
-    setError(null);
+  const {
+    data: organization,
+    isLoading: orgLoading,
+    error: orgError,
+    refetch: refreshOrg,
+  } = useQuery({
+    queryKey: ["organization", organizationId],
+    queryFn: () => (orgAddress ? getOrgState(orgAddress) : null),
+    enabled: !!orgAddress,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  });
 
-    try {
-      const orgAddress = BlockchainAddress.fromString(organizationId);
-      const orgClient = new OrganizationClient(CLIENT, orgAddress);
-      const factoryClient = new SekivaFactoryClient(CLIENT);
+  const loading = orgLoading || ballotsLoading;
+  const error = orgError || ballotsError;
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "An unknown error occurred";
 
-      const [orgState, orgBallotAddresses] = await Promise.all([
-        orgClient.getState(),
-        factoryClient.getOrganizationBallots(orgAddress),
-      ]);
-
-      setOrganization(orgState);
-      setBallotAddresses(
-        orgBallotAddresses.filter(
-          (addr) => addr && addr.asString().length === 42
-        )
-      );
-      setLastRefreshed(new Date());
-    } catch (err) {
-      console.error("Error fetching organization data:", err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
+  const handleRefresh = async () => {
+    await Promise.all([refreshOrg(), refreshBallots()]);
+    setLastRefreshed(new Date());
   };
 
-  useEffect(() => {
-    fetchOrganizationData();
-  }, [organizationId]);
-
-  const handleRefresh = () => {
-    fetchOrganizationData();
-  };
+  // Transform ballots into Map for BallotsTab
+  const ballotStatesMap = useMemo(() => {
+    if (!ballots) return new Map();
+    return new Map(
+      ballots.map(({ address, state }) => [address.asString(), state])
+    );
+  }, [ballots]);
 
   return (
     <div className="min-h-screen bg-sk-yellow-light">
@@ -157,7 +148,9 @@ const OrganizationDetail = () => {
           ) : error ? (
             <div className="bg-white rounded-lg p-8 border-2 border-black">
               <div className="bg-red-50 border border-red-200 p-4 rounded">
-                <p className="text-red-500 font-semibold">Error: {error}</p>
+                <p className="text-red-500 font-semibold">
+                  Error: {errorMessage}
+                </p>
               </div>
             </div>
           ) : organization ? (
@@ -192,9 +185,9 @@ const OrganizationDetail = () => {
                   <TabsContent value="ballots" className="m-0">
                     <BallotsTab
                       organizationId={organizationId || ""}
-                      ballotStates={ballotStates}
+                      ballotStates={ballotStatesMap}
                       loading={ballotsLoading}
-                      error={ballotsError?.message || null}
+                      error={ballotsError || null}
                     />
                   </TabsContent>
                   <TabsContent value="members" className="m-0">

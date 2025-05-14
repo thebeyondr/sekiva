@@ -5,7 +5,7 @@ import {
   castVote,
   deserializeState,
   setVoteActive,
-} from "@/contracts/ballot/BallotGenerated";
+} from "@/contracts/BallotGenerated";
 import { ShardId } from "@/partisia-config";
 import {
   BlockchainTransactionClient,

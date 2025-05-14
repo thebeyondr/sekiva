@@ -6,11 +6,14 @@ import {
   deserializeState,
   SekivaFactoryState,
   deployBallot,
-} from "@/contracts/factory/SekivaFactoryGenerated";
+} from "@/contracts/SekivaFactoryGenerated";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
-import { BallotState } from "@/contracts/ballot/BallotGenerated";
+import { BallotState } from "@/contracts/BallotGenerated";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+// with an org: 022c2353d9d52f50713581b9d5979997a84fdbf38d
+// without an org: 02217d0d73a046169a53e48ca4a21d2788e62b95ba
 const FACTORY_ADDRESS = "022c2353d9d52f50713581b9d5979997a84fdbf38d";
 
 function getByAddress<K extends { asString?: () => string } | string, V>(
@@ -83,11 +86,6 @@ export function useFactoryContract() {
       const state = await getState();
       return getByAddress(state.organizationBallots, orgAddress) || [];
     },
-    deployOrganization: async (orgInfo: OrganizationInfo) => {
-      const txClient = getTransactionClient();
-      const rpc = deployOrganization(orgInfo);
-      return txClient.signAndSend({ address: FACTORY_ADDRESS, rpc }, 1_000_000);
-    },
     deployBallot: async (ballotInfo: BallotState) => {
       const txClient = getTransactionClient();
       const rpc = deployBallot(
@@ -99,4 +97,37 @@ export function useFactoryContract() {
       return txClient.signAndSend({ address: FACTORY_ADDRESS, rpc }, 1_000_000);
     },
   };
+}
+
+export function useDeployOrganization() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orgInfo: OrganizationInfo) => {
+      if (!account) throw new Error("Wallet not connected");
+      console.log("Deploying organization with account", account.getAddress());
+      try {
+        const txClient = BlockchainTransactionClient.create(
+          TESTNET_URL,
+          account
+        );
+        console.log({ txClient });
+        const rpc = deployOrganization(orgInfo);
+        return txClient.signAndSend(
+          { address: FACTORY_ADDRESS, rpc },
+          1_000_000
+        );
+      } catch (err) {
+        throw new Error(
+          "Error deploying organization: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+      }
+    },
+    onSuccess: () => {
+      // Invalidate and refetch organizations list
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+    },
+  });
 }

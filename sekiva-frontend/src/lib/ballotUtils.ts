@@ -1,9 +1,5 @@
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import {
-  BallotState,
-  BallotStatusD,
-  Tally,
-} from "@/contracts/ballot/BallotGenerated";
+import { BallotState, BallotStatusD, Tally } from "@/contracts/BallotGenerated";
 import { BN } from "bn.js";
 import { formatDistanceToNow } from "date-fns";
 

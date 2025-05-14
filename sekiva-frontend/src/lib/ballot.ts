@@ -3,7 +3,7 @@ import {
   castVote,
   deserializeState,
   setVoteActive,
-} from "@/contracts/ballot/BallotGenerated";
+} from "@/contracts/BallotGenerated";
 import { ContractError } from "@/types/contract";
 import {
   BlockchainTransactionClient,

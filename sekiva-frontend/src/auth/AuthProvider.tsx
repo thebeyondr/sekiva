@@ -14,90 +14,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() =>
     SessionManager.hasWalletConnection()
   );
-  const [isConnected, setIsConnected] = useState<boolean>(false);
   const [account, setAccount] = useState<SenderAuthentication | undefined>(
-    undefined
+    () => {
+      // Initialize account from session if available
+      const session = SessionManager.getPartiWalletSession();
+      if (session?.connection?.account?.address) {
+        return {
+          getAddress: () => session.connection.account.address,
+          sign: async () => {
+            throw new Error("Wallet not connected for signing");
+          },
+        };
+      }
+      return undefined;
+    }
   );
 
-  // Effect to keep isConnected in sync with state
-  useEffect(() => {
-    setIsConnected(account !== undefined);
-  }, [account]);
+  // Remove isConnected state since it's derived from account
+  const isConnected = account !== undefined;
 
-  // Effect to reconnect wallet when the component mounts
+  // Single effect for session restoration
   useEffect(() => {
-    const checkAndReconnect = async () => {
-      if (account) return;
+    const restoreSession = async () => {
+      // Don't restore if we already have an account or are connecting
+      if (account || isConnecting) return;
 
       try {
         const session = SessionManager.getPartiWalletSession();
-        if (session?.connection?.account?.address) {
-          setWalletAddress(session.connection.account.address);
-          setIsAuthenticated(true);
-          setIsConnected(true);
+        if (!session?.connection?.account?.address) return;
 
-          // Restore SenderAuthentication for read-only (no sign)
-          const restoredAccount: SenderAuthentication = {
-            getAddress: () => session.connection.account.address,
-            sign: async () => {
-              throw new Error("Wallet not connected for signing");
-            },
-          };
-          setAccount(restoredAccount);
-          console.log(
-            "Restored session from storage, address:",
-            session.connection.account.address
-          );
-        }
+        const address = session.connection.account.address;
+        setWalletAddress(address);
+        setIsAuthenticated(true);
+
+        // Restore read-only account
+        const restoredAccount: SenderAuthentication = {
+          getAddress: () => address,
+          sign: async () => {
+            throw new Error("Wallet not connected for signing");
+          },
+        };
+        setAccount(restoredAccount);
+        console.log("Restored session from storage, address:", address);
       } catch (error) {
-        console.error("Failed to reconnect from stored session:", error);
+        console.error("Failed to restore session:", error);
+        // Clear invalid session
+        SessionManager.clearWalletConnection();
       }
     };
 
-    if (document.readyState === "complete") {
-      checkAndReconnect();
-    } else {
-      window.addEventListener("load", checkAndReconnect);
-      return () => window.removeEventListener("load", checkAndReconnect);
-    }
-  }, [account]);
+    // Only try to restore on initial mount
+    restoreSession();
+  }, []); // Empty deps array - only run on mount
 
   const connect = async () => {
-    if (isConnecting) return;
+    if (isConnecting || account) return; // Don't connect if already connected
 
-    setAccount(undefined);
     setIsConnecting(true);
-
     try {
       console.log("Connecting to wallet...");
       const userAccount = await connectMpcWallet();
 
       if (userAccount) {
-        console.log("Wallet connected successfully");
-        setAccount(userAccount);
         const address = userAccount.getAddress().trim();
+        setAccount(userAccount);
         setWalletAddress(address);
         setIsAuthenticated(true);
-        setIsConnected(true);
+        console.log("Wallet connected successfully:", address);
       }
     } catch (error: unknown) {
       console.error("Wallet connection error:", error);
-      disconnect();
+      // Clear any partial state on error
+      setAccount(undefined);
+      setWalletAddress(null);
+      setIsAuthenticated(false);
+      SessionManager.clearWalletConnection();
     } finally {
       setIsConnecting(false);
     }
   };
 
   const disconnect = () => {
-    console.log("Disconnecting wallet");
-    setIsDisconnecting(true);
+    if (isDisconnecting) return;
 
+    setIsDisconnecting(true);
     try {
       setAccount(undefined);
       setWalletAddress(null);
       setIsAuthenticated(false);
-      setIsConnected(false);
       SessionManager.clearWalletConnection();
+      console.log("Wallet disconnected");
     } finally {
       setIsDisconnecting(false);
     }
@@ -106,24 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Debug output in development
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
-      console.log("Auth state updated:", {
+      console.log("Auth state:", {
         walletAddress,
         isAuthenticated,
         isConnecting,
         isDisconnecting,
         isConnected,
-        isDisconnected: !isConnected,
         account: account?.getAddress(),
       });
     }
-  }, [
-    walletAddress,
-    isAuthenticated,
-    isConnecting,
-    isDisconnecting,
-    isConnected,
-    account,
-  ]);
+  }, [walletAddress, isAuthenticated, isConnecting, isDisconnecting, account]);
 
   return (
     <AuthContext.Provider

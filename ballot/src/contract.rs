@@ -115,7 +115,7 @@ fn set_vote_active(
 ) -> BallotState {
     assert_eq!(
         context.sender, state.administrator,
-        "Only administrator can start computation"
+        "Only administrator can set vote active"
     );
 
     BallotState {
@@ -124,7 +124,7 @@ fn set_vote_active(
     }
 }
 
-#[zk_on_secret_input(shortname = 0x40)]
+#[zk_on_secret_input(shortname = 0x40, secret_type = "Sbi8")]
 fn cast_vote(
     context: ContractContext,
     state: BallotState,

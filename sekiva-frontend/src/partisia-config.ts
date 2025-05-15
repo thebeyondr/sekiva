@@ -12,8 +12,8 @@ export const CLIENT = new ShardedClient(TESTNET_URL, [
   "Shard2",
 ]);
 
-export type ShardId = 0 | 1 | 2;
-export const SHARD_PRIORITY: ShardId[] = [2, 1, 0];
+export type ShardId = "0" | "1" | "2";
+export const SHARD_PRIORITY: ShardId[] = ["2", "1", "0"];
 
 let BallotTransactionConnector:
   | {

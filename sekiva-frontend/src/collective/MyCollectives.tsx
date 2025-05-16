@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { useFactoryContract } from "@/hooks/useFactoryContract";
 import { useOrganizationContract } from "@/hooks/useOrganizationContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, WalletIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import CollectiveCard from "./CollectiveCard";
@@ -40,9 +40,7 @@ const MyCollectives = () => {
         const orgIds = orgs.map((addr) => addr.asString());
         const orgsData = await Promise.all(
           orgIds.map(async (orgId) => {
-            return await getOrganizationState(
-              BlockchainAddress.fromString(orgId)
-            );
+            return await getOrganizationState(orgId);
           })
         );
         // Map orgsData to CollectiveCardData
@@ -59,6 +57,7 @@ const MyCollectives = () => {
         setCollectives(collectivesData);
         setLoading(false);
       } catch (err) {
+        console.log(err);
         if (err instanceof Error) {
           setError(err.message);
         } else {
@@ -158,28 +157,28 @@ const MyCollectives = () => {
 
           {!isConnected ? (
             <div className="bg-white rounded-lg border-2 border-black p-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">Connect Your Wallet</h2>
+              <h2 className="text-2xl font-bold mb-4">Connect your wallet</h2>
               <p className="mb-6 max-w-md mx-auto">
-                To view and manage your collectives, please connect your wallet
-                using the button in the navigation bar.
+                Use the button with the wallet icon in the nav bar to view your
+                collectives.
               </p>
               <div className="flex justify-center">
-                <div className="animate-bounce bg-amber-100 p-4 border-2 border-black rounded-full">
-                  <svg
-                    className="w-6 h-6 transform rotate-180"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                    />
-                  </svg>
+                <div className="bg-amber-100 p-4 border-2 border-black rounded-full">
+                  <WalletIcon className="w-10 h-10" />
                 </div>
               </div>
+              <p className="mt-4 text-sm text-gray-600">
+                Don't have a wallet? Install the{" "}
+                <a
+                  href="https://chromewebstore.google.com/detail/parti-wallet/gjkdbeaiifkpoencioahhcilildpjhgh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Parti Wallet extension 🎉
+                </a>{" "}
+                for Chrome or Brave browsers.
+              </p>
             </div>
           ) : loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

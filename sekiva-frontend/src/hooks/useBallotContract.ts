@@ -13,6 +13,7 @@ import {
   SentTransaction,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { Client, RealZkClient } from "@partisiablockchain/zk-client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type BallotId = string;
 
@@ -142,4 +143,38 @@ export function useBallotContract() {
       return client.setBallotActive();
     },
   };
+}
+
+export function useSetBallotActive() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ballotAddress: string) => {
+      if (!account) throw new Error("Wallet not connected");
+      console.log("Setting ballot active with account", account.getAddress());
+      try {
+        const txnClient = BlockchainTransactionClient.create(
+          TESTNET_URL,
+          account
+        );
+        const rpc = setVoteActive();
+        const txn: SentTransaction = await txnClient.signAndSend(
+          { address: ballotAddress, rpc },
+          100_000
+        );
+        console.log("Ballot set active with txn", txn);
+        return txn;
+      } catch (err) {
+        throw new Error(
+          "Error setting ballot active: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+      }
+    },
+    onSuccess: () => {
+      // Invalidate and refetch organizations list
+      queryClient.invalidateQueries({ queryKey: ["ballots"] });
+    },
+  });
 }

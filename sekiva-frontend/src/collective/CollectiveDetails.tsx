@@ -38,7 +38,7 @@ const OrganizationDetail = () => {
     refetch: refreshOrg,
   } = useQuery({
     queryKey: ["organization", organizationId],
-    queryFn: () => (orgAddress ? getOrgState(orgAddress) : null),
+    queryFn: () => (orgAddress ? getOrgState(orgAddress.asString()) : null),
     enabled: !!orgAddress,
     staleTime: 30_000,
     gcTime: 5 * 60_000,

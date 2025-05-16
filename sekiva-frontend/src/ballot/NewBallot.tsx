@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "@tanstack/react-form";
 import { useState, useEffect } from "react";
-import { FactoryApi, isConnected } from "@/AppState";
+// import { FactoryApi, isConnected } from "@/AppState";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useAuth } from "@/auth/useAuth";
 import { useNavigate, useParams } from "react-router";
 import { Link } from "react-router";
+import { useDeployBallot } from "@/hooks/useFactoryContract";
 
 function NewBallot() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,7 +19,25 @@ function NewBallot() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { id: collectiveId } = useParams();
+  const { organizationId: collectiveId } = useParams();
+  const { mutate: deployBallot } = useDeployBallot();
+
+  const [testBallotData, setTestBallotData] = useState<{
+    title: string;
+    description: string;
+    options: string[];
+    organization: BlockchainAddress;
+  } | null>(null);
+
+  useEffect(() => {
+    console.log("collectiveId", collectiveId);
+    return setTestBallotData({
+      title: "Test Ballot",
+      description: "This is a test ballot for development purposes",
+      options: ["Option 1", "Option 2", "Option 3"],
+      organization: BlockchainAddress.fromString(collectiveId!),
+    });
+  }, [collectiveId]);
 
   const form = useForm({
     defaultValues: {
@@ -36,7 +55,7 @@ function NewBallot() {
         console.log("Submitting ballot:", value);
 
         // Check if user is authenticated
-        if (!isAuthenticated || !isConnected()) {
+        if (!isAuthenticated) {
           throw new Error("You need to connect your wallet first");
         }
 
@@ -54,20 +73,24 @@ function NewBallot() {
         }
 
         // Get the factory API directly from AppState
-        const factoryApi = FactoryApi();
+        // const factoryApi = FactoryApi();
 
         // Convert organization address to BlockchainAddress
         const organizationAddress = BlockchainAddress.fromString(
           value.organization
         );
 
+        // TODO: Deploy the ballot
+
+        const result = organizationAddress;
+
         // Deploy the ballot
-        const result = await factoryApi.deployBallot(
-          cleanOptions,
-          value.title,
-          value.description,
-          organizationAddress
-        );
+        // const result = await factoryApi.deployBallot(
+        //   cleanOptions,
+        //   value.title,
+        //   value.description,
+        //   organizationAddress
+        // );
 
         console.log("Ballot deployed! Transaction:", result);
 
@@ -110,6 +133,22 @@ function NewBallot() {
                   </Button>
                 </Link>
               </div>
+            )}
+            {process.env.NODE_ENV === "development" && (
+              <Button
+                type="button"
+                onClick={() => {
+                  if (testBallotData) {
+                    deployBallot(testBallotData);
+                  }
+                }}
+                className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"
+                disabled={isSubmitting}
+              >
+                {isSubmitting
+                  ? "Deploying..."
+                  : "Fill Test Ballot Data (Dev Only)"}
+              </Button>
             )}
             <div className="absolute bottom-32 -left-1/6 w-1/3 h-auto">
               <img

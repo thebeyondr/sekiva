@@ -8,27 +8,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeftIcon,
-  CheckIcon,
-  Loader2,
-  PlusIcon,
-  TimerIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, Loader2, PlusIcon, TimerIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { getBallotStatus } from "../lib/ballotUtils";
-import { useBallotContract } from "@/hooks/useBallotContract";
-import { BallotStatusD } from "@/contracts/ballot/BallotGenerated";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useBallotContract,
+  useSetBallotActive,
+} from "@/hooks/useBallotContract";
+import { BallotStatusD } from "@/contracts/BallotGenerated";
+import { useQuery } from "@tanstack/react-query";
 
 const BallotPage = () => {
   const { organizationId, ballotId } = useParams();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("details");
-  const queryClient = useQueryClient();
-
-  const { getState, castVote, setBallotActive } = useBallotContract();
+  const { getState } = useBallotContract();
+  const { mutate: setBallotActive, isPending: isSettingActive } =
+    useSetBallotActive();
 
   const {
     data: ballot,
@@ -42,19 +39,7 @@ const BallotPage = () => {
     gcTime: 5 * 60_000,
   });
 
-  const { mutate: handleVote, isPending: isVoting } = useMutation({
-    mutationFn: (choice: number) => castVote(ballotId || "", choice),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ballot", ballotId] });
-    },
-  });
-
-  const { mutate: handleSetActive, isPending: isSettingActive } = useMutation({
-    mutationFn: () => setBallotActive(ballotId || ""),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ballot", ballotId] });
-    },
-  });
+  if (!ballotId) return <div>No ballot ID</div>;
 
   const handleStartTally = () => {
     // TODO: Implement tally computation
@@ -282,7 +267,7 @@ const BallotPage = () => {
                               )
                             )}
                           </div>
-                          <div className="pt-4">
+                          {/* <div className="pt-4">
                             <Button
                               onClick={() => handleVote(selectedOption || 0)}
                               disabled={selectedOption === null || isVoting}
@@ -291,7 +276,7 @@ const BallotPage = () => {
                               <CheckIcon className="w-4 h-4 mr-2" />
                               {isVoting ? "Submitting..." : "Submit Vote"}
                             </Button>
-                          </div>
+                          </div> */}
                         </div>
                       ) : ballotStatus === "completed" ? (
                         <div className="bg-gray-50 p-6 rounded-md text-center">
@@ -336,7 +321,7 @@ const BallotPage = () => {
                       <Button
                         variant="outline"
                         className="border-2 border-black hover:bg-gray-50"
-                        onClick={() => handleSetActive()}
+                        onClick={() => setBallotActive(ballotId)}
                         disabled={isSettingActive}
                       >
                         {!isSettingActive && (

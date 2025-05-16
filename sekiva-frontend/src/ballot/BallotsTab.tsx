@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import BallotCard from "./BallotCard";
 import { transformBallotStateToCardProps } from "../lib/ballotUtils";
-import { getAccount } from "@/AppState";
-import { BallotState } from "@/contracts/ballot/BallotGenerated";
+import { BallotState } from "@/contracts/BallotGenerated";
+import { useAuth } from "@/auth/useAuth";
 
 interface BallotsTabProps {
   organizationId: string;
@@ -49,7 +49,7 @@ const BallotsTab = ({
   loading,
   error,
 }: BallotsTabProps) => {
-  const account = getAccount();
+  const { account } = useAuth();
 
   if (loading) {
     return <BallotListSkeleton />;

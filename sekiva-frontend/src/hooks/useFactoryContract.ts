@@ -8,13 +8,15 @@ import {
   deployBallot,
 } from "@/contracts/SekivaFactoryGenerated";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
-import { BallotState } from "@/contracts/BallotGenerated";
+import {
+  BlockchainTransactionClient,
+  SentTransaction,
+} from "@partisiablockchain/blockchain-api-transaction-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 // with an org: 022c2353d9d52f50713581b9d5979997a84fdbf38d
-// without an org: 02217d0d73a046169a53e48ca4a21d2788e62b95ba
-const FACTORY_ADDRESS = "022c2353d9d52f50713581b9d5979997a84fdbf38d";
+// without an org: 024f8690bb3270929c64d279c5dc2462e8ec33c074
+const FACTORY_ADDRESS = "024f8690bb3270929c64d279c5dc2462e8ec33c074";
 
 function getByAddress<K extends { asString?: () => string } | string, V>(
   map: Map<K, V>,
@@ -38,13 +40,6 @@ function getByAddress<K extends { asString?: () => string } | string, V>(
 }
 
 export function useFactoryContract() {
-  const { account } = useAuth();
-
-  const getTransactionClient = () => {
-    if (!account) throw new Error("Wallet not connected");
-    return BlockchainTransactionClient.create(TESTNET_URL, account);
-  };
-
   const getState = async (): Promise<SekivaFactoryState> => {
     const contract = await CLIENT.getContractData(FACTORY_ADDRESS, true);
     if (!contract) throw new Error("Could not find data for contract");
@@ -86,16 +81,6 @@ export function useFactoryContract() {
       const state = await getState();
       return getByAddress(state.organizationBallots, orgAddress) || [];
     },
-    deployBallot: async (ballotInfo: BallotState) => {
-      const txClient = getTransactionClient();
-      const rpc = deployBallot(
-        ballotInfo.options,
-        ballotInfo.title,
-        ballotInfo.description,
-        ballotInfo.organization
-      );
-      return txClient.signAndSend({ address: FACTORY_ADDRESS, rpc }, 1_000_000);
-    },
   };
 }
 
@@ -112,12 +97,13 @@ export function useDeployOrganization() {
           TESTNET_URL,
           account
         );
-        console.log({ txClient });
         const rpc = deployOrganization(orgInfo);
-        return txClient.signAndSend(
+        const txn: SentTransaction = await txClient.signAndSend(
           { address: FACTORY_ADDRESS, rpc },
-          1_000_000
+          10_000_000
         );
+        console.log("Organization deployed with txn", txn);
+        return txn;
       } catch (err) {
         throw new Error(
           "Error deploying organization: " +
@@ -128,6 +114,50 @@ export function useDeployOrganization() {
     onSuccess: () => {
       // Invalidate and refetch organizations list
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
+    },
+  });
+}
+
+export function useDeployBallot() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ballotInfo: {
+      options: string[];
+      title: string;
+      description: string;
+      organization: BlockchainAddress;
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      console.log("Deploying ballot with account", account.getAddress());
+      try {
+        const txClient = BlockchainTransactionClient.create(
+          TESTNET_URL,
+          account
+        );
+        const rpc = deployBallot(
+          ballotInfo.options,
+          ballotInfo.title,
+          ballotInfo.description,
+          ballotInfo.organization
+        );
+        const txn: SentTransaction = await txClient.signAndSend(
+          { address: FACTORY_ADDRESS, rpc },
+          10_000_000
+        );
+        console.log("Ballot deployed with txn", txn);
+        return txn;
+      } catch (err) {
+        throw new Error(
+          "Error deploying organization: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+      }
+    },
+    onSuccess: () => {
+      // Invalidate and refetch organizations list
+      queryClient.invalidateQueries({ queryKey: ["ballots"] });
     },
   });
 }

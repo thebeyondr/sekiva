@@ -21,6 +21,7 @@ import {
   StateWithClient,
   SecretInputBuilder,
 } from "@partisiablockchain/abi-client";
+import { CompactBitArray } from "@secata-public/bitmanipulation-ts";
 
 type Option<K> = K | undefined;
 export class SekivaFactoryGenerated {
@@ -127,6 +128,24 @@ export class SekivaFactoryGenerated {
       organizationContractAbi,
     };
   }
+  public deserializeOrganizationInfo(_input: AbiInput): OrganizationInfo {
+    const name: string = _input.readString();
+    const description: string = _input.readString();
+    const profileImage: string = _input.readString();
+    const bannerImage: string = _input.readString();
+    const xUrl: string = _input.readString();
+    const discordUrl: string = _input.readString();
+    const websiteUrl: string = _input.readString();
+    return {
+      name,
+      description,
+      profileImage,
+      bannerImage,
+      xUrl,
+      discordUrl,
+      websiteUrl,
+    };
+  }
   public async getState(): Promise<SekivaFactoryState> {
     const bytes = await this._client?.getContractStateBinary(this._address!);
     if (bytes === undefined) {
@@ -134,6 +153,77 @@ export class SekivaFactoryGenerated {
     }
     const input = AbiByteInput.createLittleEndian(bytes);
     return this.deserializeSekivaFactoryState(input);
+  }
+
+  public deserializeDeployOrganizationAction(
+    _input: AbiInput
+  ): DeployOrganizationAction {
+    const orgInfo: OrganizationInfo = this.deserializeOrganizationInfo(_input);
+    return { discriminant: "deploy_organization", orgInfo };
+  }
+
+  public deserializeDeployBallotAction(_input: AbiInput): DeployBallotAction {
+    const options_vecLength = _input.readI32();
+    const options: string[] = [];
+    for (let options_i = 0; options_i < options_vecLength; options_i++) {
+      const options_elem: string = _input.readString();
+      options.push(options_elem);
+    }
+    const title: string = _input.readString();
+    const description: string = _input.readString();
+    const organization: BlockchainAddress = _input.readAddress();
+    return {
+      discriminant: "deploy_ballot",
+      options,
+      title,
+      description,
+      organization,
+    };
+  }
+
+  public deserializeDeployOrganizationCallbackCallback(
+    _input: AbiInput
+  ): DeployOrganizationCallbackCallback {
+    const orgContractAddress: BlockchainAddress = _input.readAddress();
+    return { discriminant: "deploy_organization_callback", orgContractAddress };
+  }
+
+  public deserializeDeployBallotCallbackCallback(
+    _input: AbiInput
+  ): DeployBallotCallbackCallback {
+    const ballotContractAddress: BlockchainAddress = _input.readAddress();
+    const organization: BlockchainAddress = _input.readAddress();
+    return {
+      discriminant: "deploy_ballot_callback",
+      ballotContractAddress,
+      organization,
+    };
+  }
+
+  public deserializeInitializeInit(_input: AbiInput): InitializeInit {
+    const ballotContractZkwa_vecLength = _input.readI32();
+    const ballotContractZkwa: Buffer = _input.readBytes(
+      ballotContractZkwa_vecLength
+    );
+    const ballotContractAbi_vecLength = _input.readI32();
+    const ballotContractAbi: Buffer = _input.readBytes(
+      ballotContractAbi_vecLength
+    );
+    const organizationContractWasm_vecLength = _input.readI32();
+    const organizationContractWasm: Buffer = _input.readBytes(
+      organizationContractWasm_vecLength
+    );
+    const organizationContractAbi_vecLength = _input.readI32();
+    const organizationContractAbi: Buffer = _input.readBytes(
+      organizationContractAbi_vecLength
+    );
+    return {
+      discriminant: "initialize",
+      ballotContractZkwa,
+      ballotContractAbi,
+      organizationContractWasm,
+      organizationContractAbi,
+    };
   }
 }
 export interface SekivaFactoryState {
@@ -248,4 +338,73 @@ export function deserializeState(
       state.address
     ).deserializeSekivaFactoryState(input);
   }
+}
+
+export type Action = DeployOrganizationAction | DeployBallotAction;
+
+export interface DeployOrganizationAction {
+  discriminant: "deploy_organization";
+  orgInfo: OrganizationInfo;
+}
+export interface DeployBallotAction {
+  discriminant: "deploy_ballot";
+  options: string[];
+  title: string;
+  description: string;
+  organization: BlockchainAddress;
+}
+export function deserializeAction(bytes: Buffer): Action {
+  const input = AbiByteInput.createBigEndian(bytes);
+  const shortname = input.readShortnameString();
+  const contract = new SekivaFactoryGenerated(undefined, undefined);
+  if (shortname === "01") {
+    return contract.deserializeDeployOrganizationAction(input);
+  } else if (shortname === "02") {
+    return contract.deserializeDeployBallotAction(input);
+  }
+  throw new Error("Illegal shortname: " + shortname);
+}
+
+export type Callback =
+  | DeployOrganizationCallbackCallback
+  | DeployBallotCallbackCallback;
+
+export interface DeployOrganizationCallbackCallback {
+  discriminant: "deploy_organization_callback";
+  orgContractAddress: BlockchainAddress;
+}
+export interface DeployBallotCallbackCallback {
+  discriminant: "deploy_ballot_callback";
+  ballotContractAddress: BlockchainAddress;
+  organization: BlockchainAddress;
+}
+export function deserializeCallback(bytes: Buffer): Callback {
+  const input = AbiByteInput.createBigEndian(bytes);
+  const shortname = input.readShortnameString();
+  const contract = new SekivaFactoryGenerated(undefined, undefined);
+  if (shortname === "10") {
+    return contract.deserializeDeployOrganizationCallbackCallback(input);
+  } else if (shortname === "20") {
+    return contract.deserializeDeployBallotCallbackCallback(input);
+  }
+  throw new Error("Illegal shortname: " + shortname);
+}
+
+export type Init = InitializeInit;
+
+export interface InitializeInit {
+  discriminant: "initialize";
+  ballotContractZkwa: Buffer;
+  ballotContractAbi: Buffer;
+  organizationContractWasm: Buffer;
+  organizationContractAbi: Buffer;
+}
+export function deserializeInit(bytes: Buffer): Init {
+  const input = AbiByteInput.createBigEndian(bytes);
+  const shortname = input.readShortnameString();
+  const contract = new SekivaFactoryGenerated(undefined, undefined);
+  if (shortname === "ffffffff0f") {
+    return contract.deserializeInitializeInit(input);
+  }
+  throw new Error("Illegal shortname: " + shortname);
 }

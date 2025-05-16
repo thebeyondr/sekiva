@@ -21,6 +21,7 @@ import {
   StateWithClient,
   SecretInputBuilder,
 } from "@partisiablockchain/abi-client";
+import { CompactBitArray } from "@secata-public/bitmanipulation-ts";
 
 type Option<K> = K | undefined;
 export class BallotGenerated {
@@ -172,12 +173,6 @@ export interface BallotState {
   tally: Option<Tally>;
 }
 
-export function deserializeSpecialBallotState(bytes: Buffer): BallotState {
-  const input = AbiByteInput.createBigEndian(bytes);
-  return new BallotGenerated(undefined, undefined).deserializeBallotState(
-    input
-  );
-}
 export enum BallotStatusD {
   Created = 0,
   Active = 1,
@@ -261,7 +256,7 @@ export function castVote(): SecretInputBuilder<number> {
     AbiBitOutput.serialize((_out) => {
       _out.writeI8(secret_input_lambda);
     });
-  return new SecretInputBuilder<number>(_publicRpc, _secretInput);
+  return new SecretInputBuilder(_publicRpc, _secretInput);
 }
 
 export function deserializeState(state: StateWithClient): BallotState;

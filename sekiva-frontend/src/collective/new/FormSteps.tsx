@@ -4,10 +4,10 @@ import { collectiveFormOpts } from "./FormOptions";
 import { MembersFields } from "./MembersFields";
 import { useCollectiveForm } from "./useCollectiveForm";
 import { useState } from "react";
-import { OrganizationInfo } from "@/contracts/factory/SekivaFactoryGenerated";
+import { OrganizationInfo } from "@/contracts/SekivaFactoryGenerated";
 
 import { useAuth } from "@/auth/useAuth";
-import { useFactoryCreateOrg } from "@/hooks/useFactoryCreateOrg";
+import { useDeployOrganization } from "@/hooks/useFactoryContract";
 
 const FormSteps = () => {
   const [currStep, setCurrStep] = useState<"define" | "members">("define");
@@ -15,7 +15,9 @@ const FormSteps = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { isAuthenticated, isConnected, connect } = useAuth();
-  const { mutate: createOrg, isPending: isCreatingOrg } = useFactoryCreateOrg();
+  const { mutate: deployOrganization, isPending: isDeploying } =
+    useDeployOrganization();
+
   const form = useCollectiveForm({
     ...collectiveFormOpts,
     onSubmit: async ({ value }) => {
@@ -36,13 +38,20 @@ const FormSteps = () => {
           description: value.description,
           profileImage: value.profileImage || "",
           bannerImage: value.bannerImage || "",
-          xUrl: value.x || "",
-          discordUrl: value.discord || "",
-          websiteUrl: value.website || "",
+          xUrl: value.xUrl || "",
+          discordUrl: value.discordUrl || "",
+          websiteUrl: value.websiteUrl || "",
         };
 
         console.log("Deploying organization with info:", orgInfo);
-        createOrg(orgInfo);
+        try {
+          deployOrganization(orgInfo);
+        } catch (err) {
+          console.error("Error deploying organization:", err);
+          setError(err instanceof Error ? err.message : String(err));
+        } finally {
+          setIsSubmitting(false);
+        }
 
         // Show success message
         setSuccessMessage(
@@ -69,6 +78,18 @@ const FormSteps = () => {
       "discord",
     ],
     members: ["members"],
+  };
+
+  const testFormData: OrganizationInfo = {
+    name: "THRASHED",
+    description: "THRASHED is a collective for warriors",
+    profileImage:
+      "https://i.pinimg.com/736x/50/3f/8e/503f8ec2c68d2cabdc53702b9cfc6b85.jpg",
+    bannerImage:
+      "https://i.pinimg.com/736x/34/8e/2c/348e2c524ecaafa6f235e7256bc80a3e.jpg",
+    xUrl: "https://x.com/thrashed_be",
+    discordUrl: "https://discord.gg/thrashed_be",
+    websiteUrl: "https://thrashed.be",
   };
 
   const handleNextStep = () => {
@@ -107,6 +128,37 @@ const FormSteps = () => {
           <DetailsFields form={form} />
         </>
       )}
+      {process.env.NODE_ENV === "development" && (
+        <>
+          <Button
+            type="button"
+            onClick={() => deployOrganization(testFormData)}
+            className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"
+            disabled={isDeploying}
+          >
+            {isDeploying
+              ? "Deploying..."
+              : "Test Deploy with Status (Dev Only)"}
+          </Button>
+          {/* {txStatus && (
+            <div
+              className={`mt-4 p-3 border rounded-sm ${
+                txStatus.status === "error"
+                  ? "bg-red-50 text-red-500 border-red-200"
+                  : txStatus.status === "confirmed"
+                    ? "bg-green-50 text-green-600 border-green-200"
+                    : "bg-blue-50 text-blue-600 border-blue-200"
+              }`}
+            >
+              {txStatus.status === "signing" && "Signing transaction..."}
+              {txStatus.status === "pending" &&
+                `Transaction pending (${txStatus.attempt || 1}/60)...`}
+              {txStatus.status === "confirmed" && "Transaction confirmed!"}
+              {txStatus.status === "error" && `Error: ${txStatus.error}`}
+            </div>
+          )} */}
+        </>
+      )}
       {currStep === "members" && (
         <>
           <h1 className="text-2xl xl:text-4xl font-normal tracking-tighter py-3">
@@ -135,13 +187,14 @@ const FormSteps = () => {
       )}
 
       {currStep === "define" && (
-        <Button onClick={handleNextStep} className="w-full mt-4">
+        <Button type="button" onClick={handleNextStep} className="w-full mt-4">
           next: add members
         </Button>
       )}
       {currStep === "members" && (
         <div className="flex gap-2">
           <Button
+            type="button"
             onClick={handlePreviousStep}
             className="w-full mt-4"
             disabled={isSubmitting}
@@ -151,11 +204,11 @@ const FormSteps = () => {
           <Button
             type="submit"
             disabled={
-              isSubmitting || form.state.isSubmitting || !isAuthenticated
+              isDeploying || form.state.isSubmitting || !isAuthenticated
             }
             className="w-full mt-4"
           >
-            {isCreatingOrg ? "creating..." : "create collective"}
+            {isDeploying ? "submitting..." : "create collective"}
           </Button>
         </div>
       )}

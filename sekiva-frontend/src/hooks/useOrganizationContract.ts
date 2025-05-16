@@ -1,5 +1,5 @@
 import { useAuth } from "@/auth/useAuth";
-import { CLIENT, TESTNET_URL } from "@/partisia-config";
+import { TESTNET_URL, SHARD_PRIORITY, CLIENT } from "@/partisia-config";
 import {
   addAdministrator,
   removeAdministrator,
@@ -14,6 +14,69 @@ import {
 } from "@/contracts/OrganizationGenerated";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
+import { ShardId } from "@/partisia-config";
+
+export type Organization = OrganizationState & {
+  lastUpdated: number;
+  shardId: ShardId;
+};
+
+const fetchOrgFromShard = async (
+  id: string,
+  shard: ShardId
+): Promise<Organization> => {
+  console.log(`[Organization] Trying shard ${shard} for org ${id}`);
+  const url = `${TESTNET_URL}/shards/Shard${shard}/blockchain/contracts/${id}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `[Organization] Fetch failed for shard ${shard}: ${res.status} ${res.statusText}`
+    );
+  }
+  const text = await res.text();
+  if (!text) {
+    throw new Error(`[Organization] Empty response for shard ${shard}`);
+  }
+  let response;
+  try {
+    response = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`[Organization] Invalid JSON from shard ${shard}: ${e}`);
+  }
+
+  if (!response?.serializedContract?.state?.data) {
+    console.log(`[Organization] No data from shard ${shard}:`, response);
+    throw new Error(`No contract data from shard ${shard}`);
+  }
+
+  console.log(`[Organization] Success from shard ${shard}`);
+  console.log(response);
+  const stateBuffer = Buffer.from(
+    response.serializedContract.state.data,
+    "base64"
+  );
+  const state = deserializeState(stateBuffer);
+  return { ...state, lastUpdated: Date.now(), shardId: shard };
+};
+
+const getOrgState = async (id: string): Promise<Organization> => {
+  let lastError: Error | null = null;
+
+  for (const shard of SHARD_PRIORITY) {
+    try {
+      const org = await fetchOrgFromShard(id, shard);
+      console.log(
+        `[Organization] Using data from shard ${shard} for org ${id}`
+      );
+      return org;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.log(`[Organization] Failed shard ${shard}:`, err);
+      if (shard === SHARD_PRIORITY[SHARD_PRIORITY.length - 1]) throw lastError;
+    }
+  }
+  throw lastError;
+};
 
 export function useOrganizationContract() {
   const { account } = useAuth();
@@ -23,35 +86,36 @@ export function useOrganizationContract() {
     return BlockchainTransactionClient.create(TESTNET_URL, account);
   };
 
-  // Read state using the generated class
-  const getState = async (
-    orgAddress: BlockchainAddress
-  ): Promise<OrganizationState> => {
-    const contract = await CLIENT.getContractData(orgAddress.asString(), true);
-    if (!contract) throw new Error("Could not find data for contract");
-    let stateBuffer: Buffer;
-    if (typeof contract.serializedContract === "string") {
-      stateBuffer = Buffer.from(contract.serializedContract, "base64");
-    } else if (
-      typeof contract.serializedContract === "object" &&
-      contract.serializedContract !== null &&
-      "data" in contract.serializedContract &&
-      typeof (contract.serializedContract as { data?: string }).data ===
-        "string"
-    ) {
-      stateBuffer = Buffer.from(
-        (contract.serializedContract as { data: string }).data,
-        "base64"
-      );
-    } else {
-      throw new Error("Unexpected contract state format");
-    }
-    return deserializeState(stateBuffer);
-  };
+  // Read state using shard-based fetching
+  // const getState = async (orgAddress: string): Promise<OrganizationState> => {
+  //   const contract = await CLIENT.getContractData(orgAddress, true);
+  //   console.log(contract);
+  //   if (!contract) throw new Error("Could not find data for contract");
+  //   let stateBuffer: Buffer;
+  //   if (typeof contract.serializedContract === "string") {
+  //     stateBuffer = Buffer.from(contract.serializedContract, "base64");
+  //     console.log("state is string");
+  //   } else if (
+  //     typeof contract.serializedContract === "object" &&
+  //     contract.serializedContract !== null &&
+  //     "data" in contract.serializedContract &&
+  //     typeof (contract.serializedContract as { data?: string }).data ===
+  //       "string"
+  //   ) {
+  //     stateBuffer = Buffer.from(
+  //       (contract.serializedContract as { data: string }).data,
+  //       "base64"
+  //     );
+  //     console.log("state is object");
+  //   } else {
+  //     throw new Error("Unexpected contract state format");
+  //   }
+  //   return deserializeState(stateBuffer);
+  // };
 
   // Write actions
   return {
-    getState,
+    getState: (orgAddress: string) => getOrgState(orgAddress),
     addAdministrator: async (
       orgAddress: BlockchainAddress,
       memberAddress: BlockchainAddress

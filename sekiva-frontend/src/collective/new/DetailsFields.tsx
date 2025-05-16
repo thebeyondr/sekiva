@@ -57,7 +57,7 @@ export const DetailsFields = withCollectiveForm({
           )}
         />
         <form.AppField
-          name="website"
+          name="websiteUrl"
           validators={{
             onBlur: ({ value }) =>
               !value ? "Add the URL of your website" : undefined,
@@ -70,7 +70,7 @@ export const DetailsFields = withCollectiveForm({
           )}
         />
         <form.AppField
-          name="x"
+          name="xUrl"
           validators={{
             onBlur: ({ value }) =>
               !value ? "Add the URL of your X account" : undefined,
@@ -80,7 +80,7 @@ export const DetailsFields = withCollectiveForm({
           )}
         />
         <form.AppField
-          name="discord"
+          name="discordUrl"
           validators={{
             onBlur: ({ value }) =>
               !value ? "Add the URL of your Discord server" : undefined,

@@ -5,6 +5,7 @@ import BallotCard from "./BallotCard";
 import { transformBallotStateToCardProps } from "../lib/ballotUtils";
 import { BallotState } from "@/contracts/BallotGenerated";
 import { useAuth } from "@/auth/useAuth";
+import { PlusIcon } from "lucide-react";
 
 interface BallotsTabProps {
   organizationId: string;
@@ -16,10 +17,12 @@ interface BallotsTabProps {
 // const TEST_BALLOT = "03f7810efaeca8260da04f6ca25ab3b88720e2860a";
 
 const BallotListHeader = ({ organizationId }: { organizationId: string }) => (
-  <div className="flex justify-between items-center mb-6">
-    <h2 className="text-xl font-semibold">Ballots</h2>
+  <div className="flex justify-end items-center mb-6">
     <Link to={`/collectives/${organizationId}/ballots/new`}>
-      <Button size="sm">create new ballot</Button>
+      <Button size="sm">
+        <PlusIcon className="w-4 h-4" />
+        Create
+      </Button>
     </Link>
   </div>
 );
@@ -75,7 +78,10 @@ const BallotsTab = ({
         {ballotEntries.length > 0 ? (
           ballotEntries.map(([address, ballot], index) => {
             const hasVoted = account
-              ? ballot.voters.some((v) => v.asString() === account.getAddress())
+              ? ballot.alreadyVoted.some(
+                  (v: BlockchainAddress) =>
+                    v.asString() === account.getAddress()
+                )
               : false;
 
             const props = transformBallotStateToCardProps(

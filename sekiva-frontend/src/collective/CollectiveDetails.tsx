@@ -1,8 +1,6 @@
 import { useParams } from "react-router";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { useQuery } from "@tanstack/react-query";
-import { useOrganizationContract } from "@/hooks/useOrganizationContract";
-import { useOrganizationBallots } from "@/hooks/useOrganizationBallots";
+import { useOrganizationWithBallots } from "@/hooks/useOrganizationContract";
 import NavBar from "@/components/shared/NavBar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,38 +21,13 @@ const OrganizationDetail = () => {
   const orgAddress = organizationId
     ? BlockchainAddress.fromString(organizationId)
     : null;
-  const { getState: getOrgState } = useOrganizationContract();
-  const {
-    ballots,
-    loading: ballotsLoading,
-    error: ballotsError,
-    refresh: refreshBallots,
-  } = useOrganizationBallots(orgAddress!);
 
-  const {
-    data: organization,
-    isLoading: orgLoading,
-    error: orgError,
-    refetch: refreshOrg,
-  } = useQuery({
-    queryKey: ["organization", organizationId],
-    queryFn: () => (orgAddress ? getOrgState(orgAddress.asString()) : null),
-    enabled: !!orgAddress,
-    staleTime: 30_000,
-    gcTime: 5 * 60_000,
-  });
-
-  const loading = orgLoading || ballotsLoading;
-  const error = orgError || ballotsError;
-  const errorMessage =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "An unknown error occurred";
+  const { organization, ballots, loading, error } = useOrganizationWithBallots(
+    orgAddress!
+  );
 
   const handleRefresh = async () => {
-    await Promise.all([refreshOrg(), refreshBallots()]);
+    // await Promise.all([refreshOrg(), refreshBallots()]);
     setLastRefreshed(new Date());
   };
 
@@ -149,7 +122,7 @@ const OrganizationDetail = () => {
             <div className="bg-white rounded-lg p-8 border-2 border-black">
               <div className="bg-red-50 border border-red-200 p-4 rounded">
                 <p className="text-red-500 font-semibold">
-                  Error: {errorMessage}
+                  Error: {error.message}
                 </p>
               </div>
             </div>
@@ -186,8 +159,8 @@ const OrganizationDetail = () => {
                     <BallotsTab
                       organizationId={organizationId || ""}
                       ballotStates={ballotStatesMap}
-                      loading={ballotsLoading}
-                      error={ballotsError || null}
+                      loading={loading}
+                      error={error || null}
                     />
                   </TabsContent>
                   <TabsContent value="members" className="m-0">

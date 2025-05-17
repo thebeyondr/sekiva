@@ -26,7 +26,7 @@ const DEPLOY_ZK_SHORTNAME: Shortname = Shortname::from_u32(2);
 const ZK_BINDER_ID: i32 = 11;
 const BALLOT_DEPLOYED_SHORTNAME: Shortname = Shortname::from_u32(0x40);
 const BALLOT_DEPLOY_FAILED_SHORTNAME: Shortname = Shortname::from_u32(0x43);
-const HANDLE_ORG_EVENT_SHORTNAME: Shortname = Shortname::from_u32(0x30);
+const HANDLE_ORG_EVENT_SHORTNAME: Shortname = Shortname::from_u32(0x11);
 
 #[derive(CreateTypeSpec, ReadWriteState, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
@@ -123,6 +123,7 @@ pub struct OrganizationState {
     ballots: SortedVecSet<Address>,
     event_nonce: u64, // Track event nonce for security
     ballot_processes: SortedVecMap<String, BallotProcessState>, // Track ballot processes by process_id
+    factory_address: Address, // Address of the factory that created this collective
 }
 
 // UI link example:
@@ -152,6 +153,7 @@ fn generate_process_id(ctx: &ContractContext) -> String {
 /// * `administrator` - the administrator of the organization.
 /// * `ballot_contract_zkwa` - the binary of the ballot contract.
 /// * `ballot_contract_abi` - the ABI of the ballot contract.
+/// * `factory_address` - the address of the factory that created this collective.
 ///
 /// # Returns
 ///
@@ -170,6 +172,7 @@ pub fn initialize(
     administrator: Address,
     ballot_contract_zkwa: Vec<u8>,
     ballot_contract_abi: Vec<u8>,
+    factory_address: Address,
 ) -> OrganizationState {
     assert_ne!(name, "", "Please name the organization.");
     assert_ne!(description, "", "Please describe the organization.");
@@ -201,6 +204,7 @@ pub fn initialize(
         ballot_contract_abi,
         event_nonce: 0,                        // Initialize event nonce
         ballot_processes: SortedVecMap::new(), // Initialize empty ballot process tracking
+        factory_address,
     }
 }
 
@@ -397,22 +401,18 @@ pub fn add_member(
     // Increment event nonce
     let event_nonce = state.event_nonce + 1;
 
-    // Broadcast event to all active ballots
-    let mut event_groups = Vec::new();
-    for ballot in state.ballots.iter() {
-        let mut ballot_event_group = EventGroup::builder();
-        ballot_event_group
-            .call(*ballot, HANDLE_ORG_EVENT_SHORTNAME)
-            .argument(OrganizationEvent::MembersAdded {
-                members: vec![address],
-                organization: ctx.contract_address,
-                timestamp: ctx.block_time as u64,
-                process_id: process_id.clone(),
-                nonce: event_nonce,
-            })
-            .done();
-        event_groups.push(ballot_event_group.build());
-    }
+    // Create event for the factory
+    let mut event_group = EventGroup::builder();
+    event_group
+        .call(state.factory_address, HANDLE_ORG_EVENT_SHORTNAME)
+        .argument(OrganizationEvent::MembersAdded {
+            members: vec![address],
+            organization: ctx.contract_address,
+            timestamp: ctx.block_time as u64,
+            process_id: process_id.clone(),
+            nonce: event_nonce,
+        })
+        .done();
 
     (
         OrganizationState {
@@ -420,7 +420,7 @@ pub fn add_member(
             event_nonce,
             ..state
         },
-        event_groups,
+        vec![event_group.build()],
     )
 }
 
@@ -464,24 +464,18 @@ pub fn add_members(
         // Increment event nonce for security
         let event_nonce = state.event_nonce + 1;
 
-        // No longer emitting an event to self, directly updating state
-
-        // Broadcast event to all active ballots
-        let mut event_groups = Vec::new();
-        for ballot in state.ballots.iter() {
-            let mut ballot_event_group = EventGroup::builder();
-            ballot_event_group
-                .call(*ballot, HANDLE_ORG_EVENT_SHORTNAME)
-                .argument(OrganizationEvent::MembersAdded {
-                    members: added_members.clone(),
-                    organization: ctx.contract_address,
-                    timestamp: ctx.block_time as u64,
-                    process_id: process_id.clone(),
-                    nonce: event_nonce,
-                })
-                .done();
-            event_groups.push(ballot_event_group.build());
-        }
+        // Create event for the factory
+        let mut event_group = EventGroup::builder();
+        event_group
+            .call(state.factory_address, HANDLE_ORG_EVENT_SHORTNAME)
+            .argument(OrganizationEvent::MembersAdded {
+                members: added_members,
+                organization: ctx.contract_address,
+                timestamp: ctx.block_time as u64,
+                process_id: process_id.clone(),
+                nonce: event_nonce,
+            })
+            .done();
 
         (
             OrganizationState {
@@ -489,7 +483,7 @@ pub fn add_members(
                 event_nonce,
                 ..state
             },
-            event_groups,
+            vec![event_group.build()],
         )
     } else {
         (state, vec![])
@@ -533,24 +527,18 @@ pub fn remove_member(
     // Increment event nonce
     let event_nonce = state.event_nonce + 1;
 
-    // No longer emitting an event to self, directly updating state
-
-    // Broadcast event to all active ballots
-    let mut event_groups = Vec::new();
-    for ballot in state.ballots.iter() {
-        let mut ballot_event_group = EventGroup::builder();
-        ballot_event_group
-            .call(*ballot, HANDLE_ORG_EVENT_SHORTNAME)
-            .argument(OrganizationEvent::MembersRemoved {
-                members: vec![address],
-                organization: ctx.contract_address,
-                timestamp: ctx.block_time as u64,
-                process_id: process_id.clone(),
-                nonce: event_nonce,
-            })
-            .done();
-        event_groups.push(ballot_event_group.build());
-    }
+    // Create event for the factory
+    let mut event_group = EventGroup::builder();
+    event_group
+        .call(state.factory_address, HANDLE_ORG_EVENT_SHORTNAME)
+        .argument(OrganizationEvent::MembersRemoved {
+            members: vec![address],
+            organization: ctx.contract_address,
+            timestamp: ctx.block_time as u64,
+            process_id: process_id.clone(),
+            nonce: event_nonce,
+        })
+        .done();
 
     (
         OrganizationState {
@@ -558,7 +546,7 @@ pub fn remove_member(
             event_nonce,
             ..state
         },
-        event_groups,
+        vec![event_group.build()],
     )
 }
 
@@ -635,6 +623,8 @@ fn deploy_ballot(
     );
 
     // Convert members set to vec for ballot init
+    // Using a "snapshot" approach - eligible voters are fixed at ballot creation time
+    // This provides clarity about who can participate and prevents mid-vote manipulation
     let eligible_voters: Vec<Address> = state.members.iter().copied().collect();
 
     event_group
@@ -720,6 +710,9 @@ fn deploy_ballot_callback(
         let mut ballots = state.ballots.clone();
         ballots.insert(ballot_contract_address);
 
+        // Create event groups
+        let mut event_groups = Vec::new();
+
         // Emit BallotDeployed event first to our own contract for tracking
         let mut self_event_group = EventGroup::builder();
         self_event_group
@@ -732,14 +725,21 @@ fn deploy_ballot_callback(
                 process_id: process_id.clone(),
             })
             .done();
-
-        // Collect all event groups
-        let event_groups = vec![self_event_group.build()];
+        event_groups.push(self_event_group.build());
 
         // Also notify the Factory about the deployment
-        // This ensures the factory can track which ballots belong to which organizations
-        // Only do this if we have a factory address stored (for future implementation)
-        // For now, we'll just update our own state
+        let mut factory_event_group = EventGroup::builder();
+        factory_event_group
+            .call(state.factory_address, HANDLE_ORG_EVENT_SHORTNAME)
+            .argument(OrganizationEvent::BallotDeployed {
+                organization: ctx.contract_address,
+                ballot: ballot_contract_address,
+                title: ballot_title,
+                timestamp: ctx.block_time as u64,
+                process_id: process_id.clone(),
+            })
+            .done();
+        event_groups.push(factory_event_group.build());
 
         (
             OrganizationState {
@@ -757,10 +757,26 @@ fn deploy_ballot_callback(
         // Use a generic error message since detailed error info isn't available in CallbackContext
         let failure_reason = "Deployment callback failed".to_string();
 
-        // Emit failure event
-        let mut event_group = EventGroup::builder();
-        event_group
+        // Create event groups
+        let mut event_groups = Vec::new();
+
+        // Emit failure event to self for tracking
+        let mut self_event_group = EventGroup::builder();
+        self_event_group
             .call(ctx.contract_address, BALLOT_DEPLOY_FAILED_SHORTNAME)
+            .argument(OrganizationEvent::BallotDeployFailed {
+                organization: ctx.contract_address,
+                reason: failure_reason.clone(),
+                timestamp: ctx.block_time as u64,
+                process_id: process_id.clone(),
+            })
+            .done();
+        event_groups.push(self_event_group.build());
+
+        // Also notify the Factory about the failure
+        let mut factory_event_group = EventGroup::builder();
+        factory_event_group
+            .call(state.factory_address, HANDLE_ORG_EVENT_SHORTNAME)
             .argument(OrganizationEvent::BallotDeployFailed {
                 organization: ctx.contract_address,
                 reason: failure_reason,
@@ -768,6 +784,7 @@ fn deploy_ballot_callback(
                 process_id,
             })
             .done();
+        event_groups.push(factory_event_group.build());
 
         (
             OrganizationState {
@@ -775,7 +792,7 @@ fn deploy_ballot_callback(
                 event_nonce,
                 ..state
             },
-            vec![event_group.build()],
+            event_groups,
         )
     }
 }

@@ -10,7 +10,6 @@ mod zk_compute;
 
 use create_type_spec_derive::CreateTypeSpec;
 use pbc_contract_common::address::Address;
-use pbc_contract_common::address::Shortname;
 use pbc_contract_common::context::ContractContext;
 use pbc_contract_common::events::EventGroup;
 use pbc_contract_common::sorted_vec_map::SortedVecMap;
@@ -20,9 +19,6 @@ use pbc_traits::ReadWriteState;
 use pbc_zk::Sbi8;
 use read_write_rpc_derive::ReadWriteRPC;
 use read_write_state_derive::ReadWriteState;
-
-// Event shortname constants
-const STATUS_CHANGED_SHORTNAME: Shortname = Shortname::from_u32(0x50);
 
 /// Secret vote metadata
 #[derive(ReadWriteState, ReadWriteRPC, Debug)]
@@ -292,8 +288,6 @@ fn handle_org_event(
     let mut processes = state.event_processes.clone();
     processes.insert(process_id.clone(), ProcessState::Received {});
 
-    let mut event_groups = Vec::new();
-
     // Process based on ballot status
     match state.status {
         Some(BallotStatus::Active {}) | Some(BallotStatus::Created {}) => {
@@ -305,18 +299,15 @@ fn handle_org_event(
                     voters.extend(members.clone());
                     processes.insert(process_id.clone(), ProcessState::Complete {});
 
-                    // Emit MembersUpdated event to track changes in ballot
-                    let mut event_group = EventGroup::builder();
-                    event_group
-                        .call(ctx.contract_address, STATUS_CHANGED_SHORTNAME)
-                        .argument(BallotEvent::MembersUpdated {
-                            added: members,
-                            removed: Vec::new(),
-                            timestamp: ctx.block_time as u64,
-                            process_id,
-                        })
-                        .done();
-                    event_groups.push(event_group.build());
+                    // Direct state update - no events
+                    (
+                        BallotState {
+                            eligible_voters: voters,
+                            event_processes: processes,
+                            ..state
+                        },
+                        vec![], // No events
+                    )
                 }
                 OrganizationEvent::MembersRemoved { members, .. } => {
                     // Remove members from eligible voters
@@ -324,32 +315,27 @@ fn handle_org_event(
                     voters.retain(|voter| !members.contains(voter));
                     processes.insert(process_id.clone(), ProcessState::Complete {});
 
-                    // Emit MembersUpdated event to track changes in ballot
-                    let mut event_group = EventGroup::builder();
-                    event_group
-                        .call(ctx.contract_address, STATUS_CHANGED_SHORTNAME)
-                        .argument(BallotEvent::MembersUpdated {
-                            added: Vec::new(),
-                            removed: removed_members,
-                            timestamp: ctx.block_time as u64,
-                            process_id,
-                        })
-                        .done();
-                    event_groups.push(event_group.build());
+                    // Direct state update - no events
+                    (
+                        BallotState {
+                            eligible_voters: voters,
+                            event_processes: processes,
+                            ..state
+                        },
+                        vec![], // No events
+                    )
                 }
                 _ => {
                     processes.insert(process_id, ProcessState::Ignored {});
+                    (
+                        BallotState {
+                            event_processes: processes,
+                            ..state
+                        },
+                        vec![],
+                    )
                 }
             }
-
-            (
-                BallotState {
-                    eligible_voters: voters,
-                    event_processes: processes,
-                    ..state
-                },
-                event_groups,
-            )
         }
         _ => {
             // Mark as ignored if not in appropriate state
@@ -635,4 +621,43 @@ fn status_changed(
         }
         _ => (state, vec![]), // Ignore other event types
     }
+}
+
+/// Allows the administrator to manually sync the eligible voters list with the organization
+/// This is a workaround for ZK contract limitations with automatic event broadcasting
+#[action(shortname = 0x05, zk = true)]
+fn sync_voters(
+    ctx: ContractContext,
+    state: BallotState,
+    _zk_state: ZkState<SecretVarType>,
+    new_eligible_voters: Vec<Address>,
+) -> (BallotState, Vec<EventGroup>) {
+    // Only the administrator or the organization contract can update voters
+    assert!(
+        ctx.sender == state.administrator || ctx.sender == state.organization,
+        "Only administrator or organization can sync voters"
+    );
+
+    // Only allow syncing if the ballot is in created or active state
+    assert!(
+        state.status.unwrap() == BallotStatus::Created {}
+            || state.status.unwrap() == BallotStatus::Active {},
+        "Cannot sync voters in current ballot state"
+    );
+
+    // Generate a process ID for this sync
+    let process_id = generate_process_id(&ctx);
+
+    // Track the process
+    let mut processes = state.event_processes.clone();
+    processes.insert(process_id.clone(), ProcessState::Complete {});
+
+    (
+        BallotState {
+            eligible_voters: new_eligible_voters,
+            event_processes: processes,
+            ..state
+        },
+        vec![], // No events
+    )
 }

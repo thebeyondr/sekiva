@@ -215,6 +215,7 @@ fn deploy_organization(
             org_init.administrator,
             state.ballot_contract_zkwa.clone(),
             state.ballot_contract_abi.clone(),
+            ctx.contract_address,
         ))
         .argument(WASM_BINDER_ID)
         .done();
@@ -347,6 +348,7 @@ fn deploy_organization_callback(
 /// * `administrator` - the administrator of the organization.
 /// * `ballot_contract_zkwa` - the binary of the ballot contract.
 /// * `ballot_contract_abi` - the ABI of the ballot contract.
+/// * `factory_address` - the address of the factory.
 ///
 /// # Returns
 ///
@@ -362,6 +364,7 @@ fn create_org_init_data(
     administrator: Address,
     ballot_contract_zkwa: Vec<u8>,
     ballot_contract_abi: Vec<u8>,
+    factory_address: Address,
 ) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0xff, 0xff, 0xff, 0xff, 0x0f];
     WriteRPC::rpc_write_to(&name, &mut bytes).unwrap();
@@ -374,6 +377,7 @@ fn create_org_init_data(
     WriteRPC::rpc_write_to(&administrator, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&ballot_contract_zkwa, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&ballot_contract_abi, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&factory_address, &mut bytes).unwrap();
     bytes
 }
 

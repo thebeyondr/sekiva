@@ -4,17 +4,18 @@ import { collectiveFormOpts } from "./FormOptions";
 import { MembersFields } from "./MembersFields";
 import { useCollectiveForm } from "./useCollectiveForm";
 import { useState } from "react";
-import { OrganizationInfo } from "@/contracts/SekivaFactoryGenerated";
+import { OrganizationInit } from "@/contracts/SekivaFactoryGenerated";
 
 import { useAuth } from "@/auth/useAuth";
 import { useDeployOrganization } from "@/hooks/useFactoryContract";
+import { BlockchainAddress } from "@partisiablockchain/abi-client";
 
 const FormSteps = () => {
   const [currStep, setCurrStep] = useState<"define" | "members">("define");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { isAuthenticated, isConnected, connect } = useAuth();
+  const { isAuthenticated, isConnected, connect, account } = useAuth();
   const { mutate: deployOrganization, isPending: isDeploying } =
     useDeployOrganization();
 
@@ -27,20 +28,22 @@ const FormSteps = () => {
         setSuccessMessage(null);
 
         // Check if user is authenticated
-        if (!isAuthenticated || !isConnected) {
+        if (!isAuthenticated || !isConnected || !account) {
           // throw new Error("You need to connect your wallet first");
           connect();
         }
 
         // Format the organization info
-        const orgInfo: OrganizationInfo = {
+        const orgInfo: OrganizationInit = {
           name: value.name,
           description: value.description,
           profileImage: value.profileImage || "",
           bannerImage: value.bannerImage || "",
-          xUrl: value.xUrl || "",
-          discordUrl: value.discordUrl || "",
-          websiteUrl: value.websiteUrl || "",
+          xUrl: value.x || "",
+          discordUrl: value.discord || "",
+          websiteUrl: value.website || "",
+          administrator:
+            BlockchainAddress.fromString(account!.getAddress()) || "",
         };
 
         console.log("Deploying organization with info:", orgInfo);
@@ -80,7 +83,7 @@ const FormSteps = () => {
     members: ["members"],
   };
 
-  const testFormData: OrganizationInfo = {
+  const testFormData: OrganizationInit = {
     name: "THRASHED",
     description: "THRASHED is a collective for warriors",
     profileImage:
@@ -90,6 +93,9 @@ const FormSteps = () => {
     xUrl: "https://x.com/thrashed_be",
     discordUrl: "https://discord.gg/thrashed_be",
     websiteUrl: "https://thrashed.be",
+    administrator: BlockchainAddress.fromString(
+      "005f9b6af48da2d353117fb2d0bbb59743241c556e"
+    ),
   };
 
   const handleNextStep = () => {

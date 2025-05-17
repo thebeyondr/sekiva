@@ -6,7 +6,10 @@ members = [
     # "zk-average-salary",
 		"ballot",
 		"sekiva-factory",
-		"organization"
+		"organization",
+		"event-ballot",
+		"factory",
+		"collective"
 ]
 
 # [workspace.package]

@@ -74,3 +74,51 @@ If you want to know more about the blockchain, ZK Rust or just contracts in gene
 we urge you to visit our [documentation](https://partisiablockchain.gitlab.io/documentation/) and
 participate
 in [our active community on Discord](https://partisiablockchain.gitlab.io/documentation/get-support-from-pbc-community.html).
+
+## Contract Shortname Scheme
+
+The contracts use a systematic shortname numbering scheme to organize different types of operations:
+
+```
+0x00-0x1F: Actions (Regular contract actions)
+- 0x00: add_administrator
+- 0x01: remove_administrator, compute_tally
+- 0x02: add_member
+- 0x03: remove_member
+- 0x04: add_ballot
+- 0x05: add_members
+- 0x06: remove_members
+- 0x07: deploy_ballot
+- 0x08: update_metadata
+- 0x09: set_vote_active (ZK action)
+- 0x11: handle_organization_event
+
+0x20-0x3F: Callbacks (Contract callbacks)
+- 0x10: deploy_organization_callback
+- 0x20: deploy_ballot_callback
+
+0x40-0x5F: Events (Contract events)
+- 0x40: BallotDeployed event
+- 0x41: MembersAdded event
+- 0x42: MembersRemoved event
+
+0x60-0x7F: ZK Operations (Zero-knowledge computations)
+- 0x60: zk_on_secret_input
+- 0x61: zk_on_variable_inputted
+- 0x62: zk_on_compute_complete
+- 0x72: zk_compute (ballot tally)
+```
+
+This scheme helps maintain consistency across contracts and makes it easier to:
+1. Identify operation types
+2. Avoid shortname conflicts
+3. Plan for future additions
+4. Document contract interfaces
+
+When adding new operations:
+- Regular actions should use 0x00-0x1F
+- Callbacks should use 0x20-0x3F
+- Events should use 0x40-0x5F
+- ZK operations should use 0x60-0x7F
+
+Note: This scheme was updated to ensure consistent ranges for each operation type. Previous versions had some operations in incorrect ranges.

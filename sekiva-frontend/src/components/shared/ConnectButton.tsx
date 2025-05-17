@@ -88,7 +88,7 @@ const ConnectButton = () => {
 
   const LoggedIn = (
     <div className="flex items-center gap-1">
-      <p className="text-sm">Logged in as</p>
+      <p className="text-sm hidden md:block">Logged in as</p>
       <div className="relative flex items-center">
         <p
           title={walletAddress ?? ""}

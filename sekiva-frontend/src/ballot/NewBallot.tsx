@@ -6,21 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "@tanstack/react-form";
 import { useState, useEffect } from "react";
-// import { FactoryApi, isConnected } from "@/AppState";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useAuth } from "@/auth/useAuth";
 import { useNavigate, useParams } from "react-router";
 import { Link } from "react-router";
-import { useDeployBallot } from "@/hooks/useFactoryContract";
+import { useOrganizationContract } from "@/hooks/useOrganizationContract";
 
 function NewBallot() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, account } = useAuth();
   const navigate = useNavigate();
   const { organizationId: collectiveId } = useParams();
-  const { mutate: deployBallot } = useDeployBallot();
+  const { deployBallot } = useOrganizationContract();
 
   const [testBallotData, setTestBallotData] = useState<{
     title: string;
@@ -134,12 +133,19 @@ function NewBallot() {
                 </Link>
               </div>
             )}
-            {process.env.NODE_ENV === "development" && (
+            {process.env.NODE_ENV === "development" && account && (
               <Button
                 type="button"
                 onClick={() => {
                   if (testBallotData) {
-                    deployBallot(testBallotData);
+                    deployBallot(BlockchainAddress.fromString(collectiveId!), {
+                      options: testBallotData.options,
+                      title: testBallotData.title,
+                      description: testBallotData.description,
+                      administrator: BlockchainAddress.fromString(
+                        account!.getAddress()
+                      ),
+                    });
                   }
                 }}
                 className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"

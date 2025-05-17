@@ -5,6 +5,9 @@ import {
   castVote,
   deserializeState,
   setVoteActive,
+  computeTally,
+  syncVoters,
+  cancelBallot,
 } from "@/contracts/BallotGenerated";
 import { ShardId } from "@/partisia-config";
 import {
@@ -14,6 +17,7 @@ import {
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { Client, RealZkClient } from "@partisiablockchain/zk-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { BlockchainAddress } from "@partisiablockchain/abi-client";
 
 export type BallotId = string;
 
@@ -66,6 +70,9 @@ interface BallotClient {
   getState: () => Promise<Ballot>;
   castVote: (choice: number) => Promise<SentTransaction>;
   setBallotActive: () => Promise<SentTransaction>;
+  computeTally: () => Promise<SentTransaction>;
+  cancelBallot: () => Promise<SentTransaction>;
+  syncVoters: (voters: BlockchainAddress[]) => Promise<SentTransaction>;
 }
 
 const createBallotClientForAddress = (
@@ -112,6 +119,50 @@ const createBallotClientForAddress = (
         );
       }
     },
+    computeTally: async (): Promise<SentTransaction> => {
+      try {
+        const rpc = computeTally();
+        return transactionClient.signAndSend(
+          { address: ballotAddress, rpc },
+          100_000
+        );
+      } catch (error: unknown) {
+        const err = error as Error;
+        throw new Error(
+          `Failed to compute tally: ${err?.message || "Unknown error"}`
+        );
+      }
+    },
+    cancelBallot: async (): Promise<SentTransaction> => {
+      try {
+        const rpc = cancelBallot();
+        return transactionClient.signAndSend(
+          { address: ballotAddress, rpc },
+          50_000
+        );
+      } catch (error: unknown) {
+        const err = error as Error;
+        throw new Error(
+          `Failed to cancel ballot: ${err?.message || "Unknown error"}`
+        );
+      }
+    },
+    syncVoters: async (
+      voters: BlockchainAddress[]
+    ): Promise<SentTransaction> => {
+      try {
+        const rpc = syncVoters(voters);
+        return transactionClient.signAndSend(
+          { address: ballotAddress, rpc },
+          100_000
+        );
+      } catch (error: unknown) {
+        const err = error as Error;
+        throw new Error(
+          `Failed to sync voters: ${err?.message || "Unknown error"}`
+        );
+      }
+    },
   };
 };
 
@@ -141,6 +192,21 @@ export function useBallotContract() {
     setBallotActive: async (ballotAddress: BallotId) => {
       const client = getBallotClient(ballotAddress);
       return client.setBallotActive();
+    },
+    computeTally: async (ballotAddress: BallotId) => {
+      const client = getBallotClient(ballotAddress);
+      return client.computeTally();
+    },
+    cancelBallot: async (ballotAddress: BallotId) => {
+      const client = getBallotClient(ballotAddress);
+      return client.cancelBallot();
+    },
+    syncVoters: async (
+      ballotAddress: BallotId,
+      voters: BlockchainAddress[]
+    ) => {
+      const client = getBallotClient(ballotAddress);
+      return client.syncVoters(voters);
     },
   };
 }
@@ -172,9 +238,116 @@ export function useSetBallotActive() {
         );
       }
     },
-    onSuccess: () => {
-      // Invalidate and refetch organizations list
-      queryClient.invalidateQueries({ queryKey: ["ballots"] });
+    onSuccess: (_, ballotAddress) => {
+      // Invalidate specific ballot
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
+}
+
+export function useComputeTally() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ballotAddress: string) => {
+      if (!account) throw new Error("Wallet not connected");
+      console.log("Computing tally with account", account.getAddress());
+      try {
+        const txnClient = BlockchainTransactionClient.create(
+          TESTNET_URL,
+          account
+        );
+        const rpc = computeTally();
+        const txn: SentTransaction = await txnClient.signAndSend(
+          { address: ballotAddress, rpc },
+          100_000
+        );
+        console.log("Tally computation initiated with txn", txn);
+        return txn;
+      } catch (err) {
+        throw new Error(
+          "Error computing tally: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+      }
+    },
+    onSuccess: (_, ballotAddress) => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
+}
+
+export function useCancelBallot() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ballotAddress: string) => {
+      if (!account) throw new Error("Wallet not connected");
+      console.log("Cancelling ballot with account", account.getAddress());
+      try {
+        const txnClient = BlockchainTransactionClient.create(
+          TESTNET_URL,
+          account
+        );
+        const rpc = cancelBallot();
+        const txn: SentTransaction = await txnClient.signAndSend(
+          { address: ballotAddress, rpc },
+          100_000
+        );
+        console.log("Ballot cancelled with txn", txn);
+        return txn;
+      } catch (err) {
+        throw new Error(
+          "Error cancelling ballot: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+      }
+    },
+    onSuccess: (_, ballotAddress) => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
+}
+
+export function useSyncVoters() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ballotAddress,
+      voters,
+    }: {
+      ballotAddress: string;
+      voters: BlockchainAddress[];
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      console.log("Syncing voters with account", account.getAddress());
+      try {
+        const txnClient = BlockchainTransactionClient.create(
+          TESTNET_URL,
+          account
+        );
+        const rpc = syncVoters(voters);
+        const txn: SentTransaction = await txnClient.signAndSend(
+          { address: ballotAddress, rpc },
+          100_000
+        );
+        console.log("Voters synced with txn", txn);
+        return txn;
+      } catch (err) {
+        throw new Error(
+          "Error syncing voters: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["ballot", variables.ballotAddress],
+      });
     },
   });
 }

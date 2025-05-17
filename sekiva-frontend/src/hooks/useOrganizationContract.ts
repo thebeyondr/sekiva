@@ -1,5 +1,5 @@
 import { useAuth } from "@/auth/useAuth";
-import { TESTNET_URL, SHARD_PRIORITY, CLIENT } from "@/partisia-config";
+import { TESTNET_URL, SHARD_PRIORITY } from "@/partisia-config";
 import {
   addAdministrator,
   removeAdministrator,
@@ -7,14 +7,17 @@ import {
   removeMember,
   addBallot,
   addMembers,
-  removeMembers,
   updateMetadata,
   OrganizationState,
   deserializeState,
+  deployBallot,
+  BallotInit,
 } from "@/contracts/OrganizationGenerated";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
 import { ShardId } from "@/partisia-config";
+import { useQuery, useQueries } from "@tanstack/react-query";
+import { Ballot, useBallotContract } from "./useBallotContract";
 
 export type Organization = OrganizationState & {
   lastUpdated: number;
@@ -86,34 +89,6 @@ export function useOrganizationContract() {
     return BlockchainTransactionClient.create(TESTNET_URL, account);
   };
 
-  // Read state using shard-based fetching
-  // const getState = async (orgAddress: string): Promise<OrganizationState> => {
-  //   const contract = await CLIENT.getContractData(orgAddress, true);
-  //   console.log(contract);
-  //   if (!contract) throw new Error("Could not find data for contract");
-  //   let stateBuffer: Buffer;
-  //   if (typeof contract.serializedContract === "string") {
-  //     stateBuffer = Buffer.from(contract.serializedContract, "base64");
-  //     console.log("state is string");
-  //   } else if (
-  //     typeof contract.serializedContract === "object" &&
-  //     contract.serializedContract !== null &&
-  //     "data" in contract.serializedContract &&
-  //     typeof (contract.serializedContract as { data?: string }).data ===
-  //       "string"
-  //   ) {
-  //     stateBuffer = Buffer.from(
-  //       (contract.serializedContract as { data: string }).data,
-  //       "base64"
-  //     );
-  //     console.log("state is object");
-  //   } else {
-  //     throw new Error("Unexpected contract state format");
-  //   }
-  //   return deserializeState(stateBuffer);
-  // };
-
-  // Write actions
   return {
     getState: (orgAddress: string) => getOrgState(orgAddress),
     addAdministrator: async (
@@ -182,17 +157,6 @@ export function useOrganizationContract() {
         1_000_000
       );
     },
-    removeMembers: async (
-      orgAddress: BlockchainAddress,
-      memberAddresses: BlockchainAddress[]
-    ) => {
-      const txClient = getTransactionClient();
-      const rpc = removeMembers(memberAddresses);
-      return txClient.signAndSend(
-        { address: orgAddress.asString(), rpc },
-        1_000_000
-      );
-    },
     updateMetadata: async (
       orgAddress: BlockchainAddress,
       fields: {
@@ -219,6 +183,80 @@ export function useOrganizationContract() {
         { address: orgAddress.asString(), rpc },
         1_000_000
       );
+    },
+    deployBallot: async (
+      orgAddress: BlockchainAddress,
+      ballotInfo: {
+        options: string[];
+        title: string;
+        description: string;
+        administrator: BlockchainAddress;
+      }
+    ) => {
+      const txClient = getTransactionClient();
+      const ballotInit: BallotInit = {
+        options: ballotInfo.options,
+        title: ballotInfo.title,
+        description: ballotInfo.description,
+        administrator: ballotInfo.administrator,
+      };
+      const rpc = deployBallot(ballotInit);
+      return txClient.signAndSend(
+        { address: orgAddress.asString(), rpc },
+        10_000_000
+      );
+    },
+  };
+}
+
+// New hook that combines organization data with ballot data
+export function useOrganizationWithBallots(orgAddress: BlockchainAddress) {
+  const { getState } = useOrganizationContract();
+  const { getState: getBallotState } = useBallotContract();
+
+  // Get the organization state
+  const orgQuery = useQuery({
+    queryKey: ["organization", orgAddress.asString()],
+    queryFn: () => getState(orgAddress.asString()),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  });
+
+  // Get all ballots for the organization in parallel
+  const ballotStatesQueries = useQueries({
+    queries: (orgQuery.data?.ballots || []).map((ballotAddress) => ({
+      queryKey: ["ballot", ballotAddress.asString()],
+      queryFn: () => getBallotState(ballotAddress.asString()),
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      enabled: !!orgQuery.data?.ballots,
+    })),
+  });
+
+  // Combine organization with its ballots
+  const ballots = ballotStatesQueries
+    .map((query, index) => {
+      if (!query.data || !orgQuery.data?.ballots) return null;
+      return {
+        address: orgQuery.data.ballots[index],
+        state: query.data,
+      };
+    })
+    .filter(
+      (ballot): ballot is { address: BlockchainAddress; state: Ballot } =>
+        ballot !== null
+    );
+
+  return {
+    organization: orgQuery.data,
+    ballots,
+    loading: orgQuery.isLoading || ballotStatesQueries.some((q) => q.isLoading),
+    error:
+      (orgQuery.error || ballotStatesQueries.find((q) => q.error)?.error) ??
+      null,
+    refresh: () => {
+      orgQuery.refetch();
+      return Promise.all(ballotStatesQueries.map((q) => q.refetch()));
     },
   };
 }

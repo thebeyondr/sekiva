@@ -13,7 +13,6 @@ import { ShardId } from "@/partisia-config";
 import {
   BlockchainTransactionClient,
   SenderAuthentication,
-  SentTransaction,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { Client, RealZkClient } from "@partisiablockchain/zk-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -66,30 +65,43 @@ const getBallotState = async (id: BallotId): Promise<Ballot> => {
   throw lastError;
 };
 
-interface BallotClient {
-  getState: () => Promise<Ballot>;
-  castVote: (choice: number) => Promise<SentTransaction>;
-  setBallotActive: () => Promise<SentTransaction>;
-  computeTally: () => Promise<SentTransaction>;
-  cancelBallot: () => Promise<SentTransaction>;
-  syncVoters: (voters: BlockchainAddress[]) => Promise<SentTransaction>;
-}
+// Create a transaction client for the given account
+const createTxClient = (account: SenderAuthentication) =>
+  BlockchainTransactionClient.create(TESTNET_URL, account);
 
-const createBallotClientForAddress = (
-  ballotAddress: BallotId,
-  account: SenderAuthentication,
-  walletAddress: string
-): BallotClient => {
-  const transactionClient = BlockchainTransactionClient.create(
-    TESTNET_URL,
-    account
-  );
-  const zkClient = RealZkClient.create(ballotAddress, new Client(TESTNET_URL));
+// Create a ZK client for the ballot contract
+const createZkClient = (ballotAddress: string) =>
+  RealZkClient.create(ballotAddress, new Client(TESTNET_URL));
+
+// Core hook for ballot contract operations
+export function useBallotContract() {
+  const { account, walletAddress } = useAuth();
+
+  const checkWalletConnected = (ballotAddress: string) => {
+    if (!account || !walletAddress) {
+      console.log("[useBallotContract] Missing dependencies:", {
+        hasAccount: !!account,
+        hasWalletAddress: !!walletAddress,
+        accountAddress: account?.getAddress(),
+        walletAddress,
+        ballotAddress,
+      });
+      throw new Error("Wallet not connected");
+    }
+    return { account, walletAddress };
+  };
 
   return {
-    getState: () => getBallotState(ballotAddress),
-    castVote: async (choice: number): Promise<SentTransaction> => {
+    // Get ballot state from the blockchain
+    getState: (ballotAddress: BallotId) => getBallotState(ballotAddress),
+
+    // Cast a vote in a ballot
+    castVote: async (ballotAddress: BallotId, choice: number) => {
       try {
+        const { account, walletAddress } = checkWalletConnected(ballotAddress);
+        const txClient = createTxClient(account);
+        const zkClient = createZkClient(ballotAddress);
+
         const castVoteSecretInputBuilder = castVote();
         const secretInput = castVoteSecretInputBuilder.secretInput(choice);
         const transaction = await zkClient.buildOnChainInputTransaction(
@@ -97,66 +109,71 @@ const createBallotClientForAddress = (
           secretInput.secretInput,
           secretInput.publicRpc
         );
-        return transactionClient.signAndSend(transaction, 100_000);
-      } catch (error: unknown) {
+        return txClient.signAndSend(transaction, 100_000);
+      } catch (error) {
         const err = error as Error;
         throw new Error(
           `Failed to cast vote: ${err?.message || "Unknown error"}`
         );
       }
     },
-    setBallotActive: async (): Promise<SentTransaction> => {
+
+    // Set a ballot to active state
+    setBallotActive: async (ballotAddress: BallotId) => {
       try {
+        const { account } = checkWalletConnected(ballotAddress);
+        const txClient = createTxClient(account);
         const rpc = setVoteActive();
-        return transactionClient.signAndSend(
-          { address: ballotAddress, rpc },
-          50_000
-        );
-      } catch (error: unknown) {
+        return txClient.signAndSend({ address: ballotAddress, rpc }, 50_000);
+      } catch (error) {
         const err = error as Error;
         throw new Error(
           `Failed to set ballot active: ${err?.message || "Unknown error"}`
         );
       }
     },
-    computeTally: async (): Promise<SentTransaction> => {
+
+    // Compute tally for a ballot
+    computeTally: async (ballotAddress: BallotId) => {
       try {
+        const { account } = checkWalletConnected(ballotAddress);
+        const txClient = createTxClient(account);
         const rpc = computeTally();
-        return transactionClient.signAndSend(
-          { address: ballotAddress, rpc },
-          100_000
-        );
-      } catch (error: unknown) {
+        return txClient.signAndSend({ address: ballotAddress, rpc }, 100_000);
+      } catch (error) {
         const err = error as Error;
         throw new Error(
           `Failed to compute tally: ${err?.message || "Unknown error"}`
         );
       }
     },
-    cancelBallot: async (): Promise<SentTransaction> => {
+
+    // Cancel a ballot
+    cancelBallot: async (ballotAddress: BallotId) => {
       try {
+        const { account } = checkWalletConnected(ballotAddress);
+        const txClient = createTxClient(account);
         const rpc = cancelBallot();
-        return transactionClient.signAndSend(
-          { address: ballotAddress, rpc },
-          50_000
-        );
-      } catch (error: unknown) {
+        return txClient.signAndSend({ address: ballotAddress, rpc }, 50_000);
+      } catch (error) {
         const err = error as Error;
         throw new Error(
           `Failed to cancel ballot: ${err?.message || "Unknown error"}`
         );
       }
     },
+
+    // Sync voters for a ballot
     syncVoters: async (
+      ballotAddress: BallotId,
       voters: BlockchainAddress[]
-    ): Promise<SentTransaction> => {
+    ) => {
       try {
+        const { account } = checkWalletConnected(ballotAddress);
+        const txClient = createTxClient(account);
         const rpc = syncVoters(voters);
-        return transactionClient.signAndSend(
-          { address: ballotAddress, rpc },
-          100_000
-        );
-      } catch (error: unknown) {
+        return txClient.signAndSend({ address: ballotAddress, rpc }, 100_000);
+      } catch (error) {
         const err = error as Error;
         throw new Error(
           `Failed to sync voters: ${err?.message || "Unknown error"}`
@@ -164,113 +181,61 @@ const createBallotClientForAddress = (
       }
     },
   };
-};
-
-export function useBallotContract() {
-  const { account, walletAddress } = useAuth();
-
-  const getBallotClient = (address: BallotId) => {
-    if (!account || !walletAddress) {
-      console.log("[useBallotContract] Missing dependencies:", {
-        hasAccount: !!account,
-        hasWalletAddress: !!walletAddress,
-        accountAddress: account?.getAddress(),
-        walletAddress,
-        address,
-      });
-      throw new Error("Wallet not connected");
-    }
-    return createBallotClientForAddress(address, account, walletAddress);
-  };
-
-  return {
-    getState: (ballotAddress: BallotId) => getBallotState(ballotAddress),
-    castVote: async (ballotAddress: BallotId, choice: number) => {
-      const client = getBallotClient(ballotAddress);
-      return client.castVote(choice);
-    },
-    setBallotActive: async (ballotAddress: BallotId) => {
-      const client = getBallotClient(ballotAddress);
-      return client.setBallotActive();
-    },
-    computeTally: async (ballotAddress: BallotId) => {
-      const client = getBallotClient(ballotAddress);
-      return client.computeTally();
-    },
-    cancelBallot: async (ballotAddress: BallotId) => {
-      const client = getBallotClient(ballotAddress);
-      return client.cancelBallot();
-    },
-    syncVoters: async (
-      ballotAddress: BallotId,
-      voters: BlockchainAddress[]
-    ) => {
-      const client = getBallotClient(ballotAddress);
-      return client.syncVoters(voters);
-    },
-  };
 }
 
+// React Query mutation hooks that use the base hook
 export function useSetBallotActive() {
-  const { account } = useAuth();
+  const ballotContract = useBallotContract();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (ballotAddress: string) => {
-      if (!account) throw new Error("Wallet not connected");
-      console.log("Setting ballot active with account", account.getAddress());
-      try {
-        const txnClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
-        const rpc = setVoteActive();
-        const txn: SentTransaction = await txnClient.signAndSend(
-          { address: ballotAddress, rpc },
-          100_000
-        );
-        console.log("Ballot set active with txn", txn);
-        return txn;
-      } catch (err) {
-        throw new Error(
-          "Error setting ballot active: " +
-            (err instanceof Error ? err.message : String(err))
-        );
-      }
+      console.log("Setting ballot active");
+      const txn = await ballotContract.setBallotActive(ballotAddress);
+      console.log("Ballot set active with txn", txn);
+      return txn;
     },
     onSuccess: (_, ballotAddress) => {
-      // Invalidate specific ballot
       queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
     },
   });
 }
 
+export function useCastVote() {
+  const ballotContract = useBallotContract();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ballotAddress,
+      choice,
+    }: {
+      ballotAddress: string;
+      choice: number;
+    }) => {
+      console.log("Casting vote");
+      const txn = await ballotContract.castVote(ballotAddress, choice);
+      console.log("Vote cast with txn", txn);
+      return txn;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["ballot", variables.ballotAddress],
+      });
+    },
+  });
+}
+
 export function useComputeTally() {
-  const { account } = useAuth();
+  const ballotContract = useBallotContract();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (ballotAddress: string) => {
-      if (!account) throw new Error("Wallet not connected");
-      console.log("Computing tally with account", account.getAddress());
-      try {
-        const txnClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
-        const rpc = computeTally();
-        const txn: SentTransaction = await txnClient.signAndSend(
-          { address: ballotAddress, rpc },
-          100_000
-        );
-        console.log("Tally computation initiated with txn", txn);
-        return txn;
-      } catch (err) {
-        throw new Error(
-          "Error computing tally: " +
-            (err instanceof Error ? err.message : String(err))
-        );
-      }
+      console.log("Computing tally");
+      const txn = await ballotContract.computeTally(ballotAddress);
+      console.log("Tally computation initiated with txn", txn);
+      return txn;
     },
     onSuccess: (_, ballotAddress) => {
       queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
@@ -279,31 +244,15 @@ export function useComputeTally() {
 }
 
 export function useCancelBallot() {
-  const { account } = useAuth();
+  const ballotContract = useBallotContract();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (ballotAddress: string) => {
-      if (!account) throw new Error("Wallet not connected");
-      console.log("Cancelling ballot with account", account.getAddress());
-      try {
-        const txnClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
-        const rpc = cancelBallot();
-        const txn: SentTransaction = await txnClient.signAndSend(
-          { address: ballotAddress, rpc },
-          100_000
-        );
-        console.log("Ballot cancelled with txn", txn);
-        return txn;
-      } catch (err) {
-        throw new Error(
-          "Error cancelling ballot: " +
-            (err instanceof Error ? err.message : String(err))
-        );
-      }
+      console.log("Cancelling ballot");
+      const txn = await ballotContract.cancelBallot(ballotAddress);
+      console.log("Ballot cancelled with txn", txn);
+      return txn;
     },
     onSuccess: (_, ballotAddress) => {
       queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
@@ -312,7 +261,7 @@ export function useCancelBallot() {
 }
 
 export function useSyncVoters() {
-  const { account } = useAuth();
+  const ballotContract = useBallotContract();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -323,26 +272,10 @@ export function useSyncVoters() {
       ballotAddress: string;
       voters: BlockchainAddress[];
     }) => {
-      if (!account) throw new Error("Wallet not connected");
-      console.log("Syncing voters with account", account.getAddress());
-      try {
-        const txnClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
-        const rpc = syncVoters(voters);
-        const txn: SentTransaction = await txnClient.signAndSend(
-          { address: ballotAddress, rpc },
-          100_000
-        );
-        console.log("Voters synced with txn", txn);
-        return txn;
-      } catch (err) {
-        throw new Error(
-          "Error syncing voters: " +
-            (err instanceof Error ? err.message : String(err))
-        );
-      }
+      console.log("Syncing voters");
+      const txn = await ballotContract.syncVoters(ballotAddress, voters);
+      console.log("Voters synced with txn", txn);
+      return txn;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({

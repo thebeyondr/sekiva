@@ -79,7 +79,7 @@ export const transformBallotStateToCardProps = (
   title: state.title,
   description: state.description,
   status: getBallotStatus(state.status),
-  voteCount: state.voters.length,
+  voteCount: state.alreadyVoted.length,
   timeInfo: getTimeInfo(state.startTime, state.endTime),
   contractAddress,
   organizationId,

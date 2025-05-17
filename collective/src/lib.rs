@@ -25,8 +25,6 @@ const DEPLOY_ZK_CONTRACT_ADDRESS: Address = Address {
 const DEPLOY_ZK_SHORTNAME: Shortname = Shortname::from_u32(2);
 const ZK_BINDER_ID: i32 = 11;
 const BALLOT_DEPLOYED_SHORTNAME: Shortname = Shortname::from_u32(0x40);
-const MEMBERS_ADDED_SHORTNAME: Shortname = Shortname::from_u32(0x41);
-const MEMBERS_REMOVED_SHORTNAME: Shortname = Shortname::from_u32(0x42);
 const BALLOT_DEPLOY_FAILED_SHORTNAME: Shortname = Shortname::from_u32(0x43);
 const HANDLE_ORG_EVENT_SHORTNAME: Shortname = Shortname::from_u32(0x30);
 

@@ -29,6 +29,7 @@ const MyCollectives = () => {
   const { getUserMemberships } = useFactoryContract();
   const { getState: getOrganizationState } = useOrganizationContract();
 
+  // TODO: Nuke useEffect here
   useEffect(() => {
     const loadCollectives = async () => {
       if (!account) return; // Just return if no account, don't try to connect
@@ -71,70 +72,6 @@ const MyCollectives = () => {
     loadCollectives();
   }, [account]); // Only depend on account, not isConnected
 
-  // Helper function to generate sample data
-  // const logoLinks = [
-  //   "https://i.pinimg.com/736x/70/3a/90/703a90787dc3c4082339f683a3ad888b.jpg",
-  //   "https://i.pinimg.com/736x/90/0c/7b/900c7b79813d50e36bd7bcbc1c0d9857.jpg",
-  //   "https://i.pinimg.com/736x/29/db/ce/29dbceff6b775745ad39eeec91388652.jpg",
-  // ];
-  // const bannerLinks = [
-  //   "https://i.pinimg.com/736x/01/55/b6/0155b60548f26a55a75a785cbe004522.jpg",
-  //   "https://i.pinimg.com/736x/af/7a/72/af7a724cbf960da1b16b142b19df0aac.jpg",
-  //   "https://i.pinimg.com/736x/f7/e1/10/f7e110f07b93fa34b7eb4e52627376c9.jpg",
-  // ];
-  // const generateCollectivesData = (
-  //   addresses: BlockchainAddress[]
-  // ): CollectiveCardData[] => {
-  //   const names = [
-  //     "DAO Explorers",
-  //     "Blockchain Builders",
-  //     "Web3 Innovators",
-  //     "Crypto Collective",
-  //     "DeFi Alliance",
-  //     "NFT Creators Guild",
-  //     "Token Engineers",
-  //   ];
-
-  //   const descriptions = [
-  //     "A community of explorers pushing the boundaries of decentralized organizations.",
-  //     "Building the future of blockchain technology one block at a time.",
-  //     "Innovating at the intersection of web technologies and decentralized systems.",
-  //     "A collective dedicated to advancing cryptocurrency adoption and education.",
-  //     "Alliance of DeFi experts working to create more accessible financial tools.",
-  //     "Guild of artists and developers creating innovative NFT experiences.",
-  //     "Engineering the token economy of tomorrow through collaborative research.",
-  //   ];
-
-  //   // Generate sample data for each address
-  //   return addresses.map((address, index) => {
-  //     const randomNameIndex = index % names.length;
-  //     const randomDescIndex = index % descriptions.length;
-  //     const memberCount = Math.floor(Math.random() * 50) + 5; // Random between 5-55
-  //     return {
-  //       id: address.asString(),
-  //       name: names[randomNameIndex],
-  //       description: descriptions[randomDescIndex],
-  //       memberCount,
-  //       bannerImage: bannerLinks[index % bannerLinks.length],
-  //       profileImage: logoLinks[index % logoLinks.length],
-  //     };
-  //   });
-  // };
-
-  // Add some mock collectives if factory state has none
-  // useEffect(() => {
-  //   if (factoryState && factoryState.organizations.length === 0) {
-  //     // If no organizations exist, create some sample ones
-  //     const mockAddresses = Array.from({ length: 5 }, (_, i) =>
-  //       BlockchainAddress.fromString(
-  //         `021${i}e54b707bd575ca32e4ab6be5790735661e0e3${i}`
-  //       )
-  //     );
-  //     const sampleData = generateCollectivesData(mockAddresses);
-  //     setCollectives(sampleData);
-  //   }
-  // }, [factoryState]);
-
   return (
     <div className="min-h-screen bg-sk-yellow-light">
       <div className="container mx-auto max-w-[1500px]">
@@ -149,7 +86,7 @@ const MyCollectives = () => {
               <Link to="/collectives/new">
                 <Button className="flex items-center gap-2">
                   <PlusIcon className="w-4 h-4" />
-                  New Collective
+                  New
                 </Button>
               </Link>
             )}

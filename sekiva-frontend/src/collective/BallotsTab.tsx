@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import BallotCard from "./BallotCard";
+import BallotCard from "../ballot/BallotCard";
 import { transformBallotStateToCardProps } from "../lib/ballotUtils";
 import { BallotState } from "@/contracts/BallotGenerated";
 import { useAuth } from "@/auth/useAuth";

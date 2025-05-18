@@ -2,9 +2,8 @@ import { useParams } from "react-router";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useOrganizationWithBallots } from "@/hooks/useOrganizationContract";
 import NavBar from "@/components/shared/NavBar";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import BallotsTab from "@/ballot/BallotsTab";
+import BallotsTab from "@/collective/BallotsTab";
 import AboutTab from "./AboutTab";
 import MembersTab from "./MembersTab";
 import { useState, useMemo } from "react";
@@ -16,7 +15,6 @@ const Skeleton = ({ className }: { className: string }) => (
 const OrganizationDetail = () => {
   const { organizationId } = useParams();
   const [activeTab, setActiveTab] = useState("ballots");
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const orgAddress = organizationId
     ? BlockchainAddress.fromString(organizationId)
@@ -25,11 +23,6 @@ const OrganizationDetail = () => {
   const { organization, ballots, loading, error } = useOrganizationWithBallots(
     orgAddress!
   );
-
-  const handleRefresh = async () => {
-    // await Promise.all([refreshOrg(), refreshBallots()]);
-    setLastRefreshed(new Date());
-  };
 
   // Transform ballots into Map for BallotsTab
   const ballotStatesMap = useMemo(() => {
@@ -92,7 +85,7 @@ const OrganizationDetail = () => {
 
         <section className="container mx-auto max-w-3xl py-4 space-y-6">
           {/* Refresh Button */}
-          <div className="flex justify-end items-center">
+          {/* <div className="flex justify-end items-center">
             <div className="flex items-center gap-2">
               {lastRefreshed && (
                 <span className="text-xs text-gray-500">
@@ -108,7 +101,7 @@ const OrganizationDetail = () => {
                 {loading ? "Refreshing..." : "Refresh Data"}
               </Button>
             </div>
-          </div>
+          </div> */}
 
           {/* Loading/Error States */}
           {loading ? (

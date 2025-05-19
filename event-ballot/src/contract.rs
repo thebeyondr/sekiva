@@ -207,8 +207,8 @@ fn initialize(
 
     // Generate a process ID for this ballot
     let process_id = generate_process_id(&ctx);
-    let start_time = ctx.block_time as u64;
-    let end_time = start_time + duration_seconds;
+    let start_time = ctx.block_production_time as u64;
+    let end_time = start_time + duration_seconds * 1000;
 
     BallotState {
         organization,

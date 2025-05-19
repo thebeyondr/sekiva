@@ -122,7 +122,8 @@ export class OrganizationGenerated {
     const title: string = _input.readString();
     const description: string = _input.readString();
     const administrator: BlockchainAddress = _input.readAddress();
-    return { options, title, description, administrator };
+    const durationSeconds: BN = _input.readU64();
+    return { options, title, description, administrator, durationSeconds };
   }
   public deserializeOrganizationEvent(_input: AbiInput): OrganizationEvent {
     const discriminant = _input.readU8();
@@ -367,9 +368,10 @@ export interface BallotInit {
   title: string;
   description: string;
   administrator: BlockchainAddress;
+  durationSeconds: BN;
 }
 function serializeBallotInit(_out: AbiOutput, _value: BallotInit): void {
-  const { options, title, description, administrator } = _value;
+  const { options, title, description, administrator, durationSeconds } = _value;
   _out.writeI32(options.length);
   for (const options_vec of options) {
     _out.writeString(options_vec);
@@ -377,6 +379,7 @@ function serializeBallotInit(_out: AbiOutput, _value: BallotInit): void {
   _out.writeString(title);
   _out.writeString(description);
   _out.writeAddress(administrator);
+  _out.writeU64(durationSeconds);
 }
 
 export enum OrganizationEventD {

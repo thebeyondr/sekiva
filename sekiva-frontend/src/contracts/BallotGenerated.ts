@@ -86,20 +86,15 @@ export class BallotGenerated {
   public deserializeBallotStatus(_input: AbiInput): BallotStatus {
     const discriminant = _input.readU8();
     if (discriminant === 0) {
-      return this.deserializeBallotStatusCreated(_input);
-    } else if (discriminant === 1) {
       return this.deserializeBallotStatusActive(_input);
-    } else if (discriminant === 2) {
+    } else if (discriminant === 1) {
       return this.deserializeBallotStatusTallying(_input);
-    } else if (discriminant === 3) {
+    } else if (discriminant === 2) {
       return this.deserializeBallotStatusCompleted(_input);
-    } else if (discriminant === 4) {
+    } else if (discriminant === 3) {
       return this.deserializeBallotStatusCancelled(_input);
     }
     throw new Error("Unknown discriminant: " + discriminant);
-  }
-  public deserializeBallotStatusCreated(_input: AbiInput): BallotStatusCreated {
-    return { discriminant: BallotStatusD.Created,  };
   }
   public deserializeBallotStatusActive(_input: AbiInput): BallotStatusActive {
     return { discriminant: BallotStatusD.Active,  };
@@ -125,25 +120,15 @@ export class BallotGenerated {
   public deserializeBallotProcessState(_input: AbiInput): BallotProcessState {
     const discriminant = _input.readU8();
     if (discriminant === 0) {
-      return this.deserializeBallotProcessStateCreated(_input);
-    } else if (discriminant === 1) {
-      return this.deserializeBallotProcessStateDeployed(_input);
-    } else if (discriminant === 2) {
       return this.deserializeBallotProcessStateActive(_input);
-    } else if (discriminant === 3) {
+    } else if (discriminant === 1) {
       return this.deserializeBallotProcessStateTallying(_input);
-    } else if (discriminant === 4) {
+    } else if (discriminant === 2) {
       return this.deserializeBallotProcessStateCompleted(_input);
-    } else if (discriminant === 5) {
+    } else if (discriminant === 3) {
       return this.deserializeBallotProcessStateCancelled(_input);
     }
     throw new Error("Unknown discriminant: " + discriminant);
-  }
-  public deserializeBallotProcessStateCreated(_input: AbiInput): BallotProcessStateCreated {
-    return { discriminant: BallotProcessStateD.Created,  };
-  }
-  public deserializeBallotProcessStateDeployed(_input: AbiInput): BallotProcessStateDeployed {
-    return { discriminant: BallotProcessStateD.Deployed,  };
   }
   public deserializeBallotProcessStateActive(_input: AbiInput): BallotProcessStateActive {
     return { discriminant: BallotProcessStateD.Active,  };
@@ -308,10 +293,6 @@ export class BallotGenerated {
     return { discriminant: "sync_voters", newEligibleVoters };
   }
 
-  public deserializeSetVoteActiveAction(_input: AbiInput): SetVoteActiveAction {
-    return { discriminant: "set_vote_active",  };
-  }
-
   public deserializeCancelBallotAction(_input: AbiInput): CancelBallotAction {
     return { discriminant: "cancel_ballot",  };
   }
@@ -343,7 +324,8 @@ export class BallotGenerated {
       const eligibleVoters_elem: BlockchainAddress = _input.readAddress();
       eligibleVoters.push(eligibleVoters_elem);
     }
-    return { discriminant: "initialize", options, title, description, organization, administrator, eligibleVoters };
+    const durationSeconds: BN = _input.readU64();
+    return { discriminant: "initialize", options, title, description, organization, administrator, eligibleVoters, durationSeconds };
   }
 
 }
@@ -365,22 +347,18 @@ export interface BallotState {
 }
 
 export enum BallotStatusD {
-  Created = 0,
-  Active = 1,
-  Tallying = 2,
-  Completed = 3,
-  Cancelled = 4,
+  Active = 0,
+  Tallying = 1,
+  Completed = 2,
+  Cancelled = 3,
 }
 export type BallotStatus =
-  | BallotStatusCreated
   | BallotStatusActive
   | BallotStatusTallying
   | BallotStatusCompleted
   | BallotStatusCancelled;
 function serializeBallotStatus(out: AbiOutput, value: BallotStatus): void {
-  if (value.discriminant === BallotStatusD.Created) {
-    return serializeBallotStatusCreated(out, value);
-  } else if (value.discriminant === BallotStatusD.Active) {
+  if (value.discriminant === BallotStatusD.Active) {
     return serializeBallotStatusActive(out, value);
   } else if (value.discriminant === BallotStatusD.Tallying) {
     return serializeBallotStatusTallying(out, value);
@@ -389,14 +367,6 @@ function serializeBallotStatus(out: AbiOutput, value: BallotStatus): void {
   } else if (value.discriminant === BallotStatusD.Cancelled) {
     return serializeBallotStatusCancelled(out, value);
   }
-}
-
-export interface BallotStatusCreated {
-  discriminant: BallotStatusD.Created;
-}
-function serializeBallotStatusCreated(_out: AbiOutput, _value: BallotStatusCreated): void {
-  const {} = _value;
-  _out.writeU8(_value.discriminant);
 }
 
 export interface BallotStatusActive {
@@ -441,28 +411,16 @@ export interface Tally {
 }
 
 export enum BallotProcessStateD {
-  Created = 0,
-  Deployed = 1,
-  Active = 2,
-  Tallying = 3,
-  Completed = 4,
-  Cancelled = 5,
+  Active = 0,
+  Tallying = 1,
+  Completed = 2,
+  Cancelled = 3,
 }
 export type BallotProcessState =
-  | BallotProcessStateCreated
-  | BallotProcessStateDeployed
   | BallotProcessStateActive
   | BallotProcessStateTallying
   | BallotProcessStateCompleted
   | BallotProcessStateCancelled;
-
-export interface BallotProcessStateCreated {
-  discriminant: BallotProcessStateD.Created;
-}
-
-export interface BallotProcessStateDeployed {
-  discriminant: BallotProcessStateD.Deployed;
-}
 
 export interface BallotProcessStateActive {
   discriminant: BallotProcessStateD.Active;
@@ -702,7 +660,7 @@ function serializeBallotEventStatusChanged(_out: AbiOutput, _value: BallotEventS
   _out.writeString(processId);
 }
 
-export function initialize(options: string[], title: string, description: string, organization: BlockchainAddress, administrator: BlockchainAddress, eligibleVoters: BlockchainAddress[]): Buffer {
+export function initialize(options: string[], title: string, description: string, organization: BlockchainAddress, administrator: BlockchainAddress, eligibleVoters: BlockchainAddress[], durationSeconds: BN): Buffer {
   return AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("ffffffff0f", "hex"));
     _out.writeI32(options.length);
@@ -717,6 +675,7 @@ export function initialize(options: string[], title: string, description: string
     for (const eligibleVoters_vec of eligibleVoters) {
       _out.writeAddress(eligibleVoters_vec);
     }
+    _out.writeU64(durationSeconds);
   });
 }
 
@@ -735,13 +694,6 @@ export function syncVoters(newEligibleVoters: BlockchainAddress[]): Buffer {
     for (const newEligibleVoters_vec of newEligibleVoters) {
       _out.writeAddress(newEligibleVoters_vec);
     }
-  });
-}
-
-export function setVoteActive(): Buffer {
-  return AbiByteOutput.serializeBigEndian((_out) => {
-    _out.writeU8(0x09);
-    _out.writeBytes(Buffer.from("09", "hex"));
   });
 }
 
@@ -805,7 +757,6 @@ export function deserializeState(
 export type Action =
   | ComputeTallyAction
   | SyncVotersAction
-  | SetVoteActiveAction
   | CancelBallotAction
   | HandleOrgEventAction
   | StatusChangedAction;
@@ -816,9 +767,6 @@ export interface ComputeTallyAction {
 export interface SyncVotersAction {
   discriminant: "sync_voters";
   newEligibleVoters: BlockchainAddress[];
-}
-export interface SetVoteActiveAction {
-  discriminant: "set_vote_active";
 }
 export interface CancelBallotAction {
   discriminant: "cancel_ballot";
@@ -840,8 +788,6 @@ export function deserializeAction(bytes: Buffer): Action {
     return contract.deserializeComputeTallyAction(input);
   } else if (shortname === "05") {
     return contract.deserializeSyncVotersAction(input);
-  } else if (shortname === "09") {
-    return contract.deserializeSetVoteActiveAction(input);
   } else if (shortname === "11") {
     return contract.deserializeCancelBallotAction(input);
   } else if (shortname === "30") {
@@ -863,6 +809,7 @@ export interface InitializeInit {
   organization: BlockchainAddress;
   administrator: BlockchainAddress;
   eligibleVoters: BlockchainAddress[];
+  durationSeconds: BN;
 }
 export function deserializeInit(bytes: Buffer): Init {
   const input = AbiByteInput.createBigEndian(bytes);

@@ -37,13 +37,18 @@ export function TransactionDialog({
   // Handle success
   useEffect(() => {
     if (status.isSuccess && status.isFinalized && status.contractAddress) {
-      // Call success callback
-      if (onSuccess) {
-        onSuccess(status.contractAddress);
-      }
+      // Add delay before showing success to allow blockchain to stabilize
+      const successTimer = setTimeout(() => {
+        // Call success callback
+        if (onSuccess) {
+          onSuccess(status.contractAddress!);
+        }
 
-      // Trigger confetti animation on success
-      setShowConfetti(true);
+        // Trigger confetti animation on success
+        setShowConfetti(true);
+      }, 5000); // 5 second delay
+
+      return () => clearTimeout(successTimer);
     }
   }, [status.isSuccess, status.isFinalized, status.contractAddress, onSuccess]);
 
@@ -129,7 +134,7 @@ export function TransactionDialog({
       <DialogContent className="sm:max-w-[480px] border-2 border-black rounded-lg p-0 overflow-hidden transition-all duration-300 shadow-xl">
         <DialogHeader className="border-b border-gray-200 p-4">
           <DialogTitle className="text-xl font-bold">
-            {action === "deploy" ? "Deploying" : "Submitting"} Transaction
+            {action === "deploy" ? "Deploying" : "Processing"} Transaction
           </DialogTitle>
         </DialogHeader>
 
@@ -169,7 +174,7 @@ export function TransactionDialog({
               {showConfetti && (
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
                   <div className="confetti-container" aria-hidden="true">
-                    {/* SVG confetti elements go here if needed */}
+                    {/*TODO: Add SVG confetti elements here if theres time */}
                   </div>
                 </div>
               )}

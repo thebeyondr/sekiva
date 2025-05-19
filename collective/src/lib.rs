@@ -67,6 +67,7 @@ struct BallotInit {
     title: String,
     description: String,
     administrator: Address,
+    duration_seconds: u64,
 }
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
@@ -629,17 +630,17 @@ fn deploy_ballot(
 
     event_group
         .call(DEPLOY_ZK_CONTRACT_ADDRESS, DEPLOY_ZK_SHORTNAME)
-        .argument(state.ballot_contract_zkwa.clone()) // contractJar
+        .argument(state.ballot_contract_zkwa.clone())
         .argument(create_ballot_init_data(
-            // initialization
             ballot_init.options,
             ballot_init.title,
             ballot_init.description,
             ctx.contract_address,
             ballot_init.administrator,
-            eligible_voters, // Pass eligible_voters
+            eligible_voters,
+            ballot_init.duration_seconds,
         ))
-        .argument(state.ballot_contract_abi.clone()) // abi
+        .argument(state.ballot_contract_abi.clone())
         .argument(20000000i64) // requiredStakes
         .argument(Vec::<Vec<i32>>::new()) // allowedJurisdictions
         .argument(ZK_BINDER_ID) // uniqueId
@@ -816,6 +817,7 @@ fn create_ballot_init_data(
     organization: Address,
     administrator: Address,
     eligible_voters: Vec<Address>,
+    duration_seconds: u64,
 ) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0xff, 0xff, 0xff, 0xff, 0x0f];
     WriteRPC::rpc_write_to(&options, &mut bytes).unwrap();
@@ -824,6 +826,7 @@ fn create_ballot_init_data(
     WriteRPC::rpc_write_to(&organization, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&administrator, &mut bytes).unwrap();
     WriteRPC::rpc_write_to(&eligible_voters, &mut bytes).unwrap();
+    WriteRPC::rpc_write_to(&duration_seconds, &mut bytes).unwrap();
     bytes
 }
 

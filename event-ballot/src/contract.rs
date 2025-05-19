@@ -34,14 +34,12 @@ enum SecretVarType {
 #[repr(u8)]
 enum BallotStatus {
     #[discriminant(0)]
-    Created {},
-    #[discriminant(1)]
     Active {},
-    #[discriminant(2)]
+    #[discriminant(1)]
     Tallying {},
-    #[discriminant(3)]
+    #[discriminant(2)]
     Completed {},
-    #[discriminant(4)]
+    #[discriminant(3)]
     Cancelled {},
 }
 
@@ -49,16 +47,12 @@ enum BallotStatus {
 #[repr(u8)]
 enum BallotProcessState {
     #[discriminant(0)]
-    Created {},
-    #[discriminant(1)]
-    Deployed {},
-    #[discriminant(2)]
     Active {},
-    #[discriminant(3)]
+    #[discriminant(1)]
     Tallying {},
-    #[discriminant(4)]
+    #[discriminant(2)]
     Completed {},
-    #[discriminant(5)]
+    #[discriminant(3)]
     Cancelled {},
 }
 
@@ -196,9 +190,15 @@ fn initialize(
     organization: Address,
     administrator: Address,
     eligible_voters: Vec<Address>,
+    duration_seconds: u64,
 ) -> BallotState {
     assert!(options.len() <= 5, "At most 5 options are supported");
     assert!(options.len() > 1, "At least 2 options are required");
+    assert!(duration_seconds > 0, "Duration must be greater than 0");
+    assert!(
+        duration_seconds <= 30 * 24 * 60 * 60,
+        "Duration cannot exceed 30 days"
+    );
 
     assert_ne!(
         administrator, organization,
@@ -207,6 +207,8 @@ fn initialize(
 
     // Generate a process ID for this ballot
     let process_id = generate_process_id(&ctx);
+    let start_time = ctx.block_time as u64;
+    let end_time = start_time + duration_seconds;
 
     BallotState {
         organization,
@@ -214,53 +216,16 @@ fn initialize(
         title,
         description,
         options,
-        start_time: 0,
-        end_time: 0,
-        status: Some(BallotStatus::Created {}),
+        start_time,
+        end_time,
+        status: Some(BallotStatus::Active {}),
         tally: None,
         eligible_voters,
         already_voted: Vec::new(),
-        process_state: BallotProcessState::Created {}, // Initialize process state
-        process_id,                                    // Set the process ID
-        event_processes: SortedVecMap::new(),          // Initialize empty event process tracking
+        process_state: BallotProcessState::Active {},
+        process_id,
+        event_processes: SortedVecMap::new(),
     }
-}
-
-/// Allows the administrator to start the voting period.
-#[action(shortname = 0x09, zk = true)]
-fn set_vote_active(
-    context: ContractContext,
-    state: BallotState,
-    zk_state: ZkState<SecretVarType>,
-) -> (BallotState, Vec<EventGroup>) {
-    assert_eq!(
-        context.sender, state.administrator,
-        "Only administrator can set vote active"
-    );
-
-    // Generate a process ID for this status change
-    let process_id = generate_process_id(&context);
-
-    // Set the new status
-    let new_status = BallotStatus::Active {};
-
-    // Update process tracking directly in state instead of emitting self-event
-    let mut processes = state.event_processes.clone();
-    processes.insert(process_id.clone(), ProcessState::Complete {});
-
-    // No events emitted to self - we're directly updating state
-
-    (
-        BallotState {
-            status: Some(new_status),
-            start_time: context.block_time as u64,
-            end_time: context.block_time as u64 + 604800, // One week in seconds
-            process_state: BallotProcessState::Active {},
-            event_processes: processes,
-            ..state
-        },
-        vec![], // No events
-    )
 }
 
 /// Handles events from the organization contract
@@ -290,7 +255,7 @@ fn handle_org_event(
 
     // Process based on ballot status
     match state.status {
-        Some(BallotStatus::Active {}) | Some(BallotStatus::Created {}) => {
+        Some(BallotStatus::Active {}) => {
             let mut voters = state.eligible_voters.clone();
 
             match event {
@@ -367,10 +332,13 @@ fn cast_vote(
         "Ballot is not active"
     );
     assert!(
+        context.block_time as u64 <= state.end_time,
+        "Voting period has ended"
+    );
+    assert!(
         state.eligible_voters.contains(&context.sender),
         "Not eligible to vote"
     );
-
     assert!(
         !state.already_voted.contains(&context.sender),
         "Already voted"
@@ -638,10 +606,9 @@ fn sync_voters(
         "Only administrator or organization can sync voters"
     );
 
-    // Only allow syncing if the ballot is in created or active state
+    // Only allow syncing if the ballot is active
     assert!(
-        state.status.unwrap() == BallotStatus::Created {}
-            || state.status.unwrap() == BallotStatus::Active {},
+        state.status.unwrap() == BallotStatus::Active {},
         "Cannot sync voters in current ballot state"
     );
 

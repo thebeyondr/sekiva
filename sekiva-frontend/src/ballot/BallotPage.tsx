@@ -74,10 +74,10 @@ const BallotPage = () => {
   // Calculate total votes
   const totalVotes = ballot.tally?.total;
 
-  let winningOption: number | undefined;
+  let winningOptions: number[] = [];
 
   if (ballot.status?.discriminant === BallotStatusD.Completed) {
-    // Find winning option by comparing vote counts
+    // Find all winning options by comparing vote counts
     let maxVotes = 0;
     for (let i = 0; i < ballot.options.length; i++) {
       const optionVotes =
@@ -85,12 +85,14 @@ const BallotPage = () => {
         0;
       if (optionVotes > maxVotes) {
         maxVotes = optionVotes;
-        winningOption = i;
+        winningOptions = [i];
+      } else if (optionVotes === maxVotes && maxVotes > 0) {
+        winningOptions.push(i);
       }
     }
   }
 
-  console.log(winningOption);
+  console.log("Winning options:", winningOptions);
 
   return (
     <div className="min-h-screen bg-sk-yellow-light">
@@ -195,7 +197,7 @@ const BallotPage = () => {
                               <div className="h-2 bg-gray-200 flex-grow rounded-full overflow-hidden">
                                 <div
                                   className={`h-full ${
-                                    winningOption === index
+                                    winningOptions.includes(index)
                                       ? "bg-green-500"
                                       : "bg-black"
                                   }`}

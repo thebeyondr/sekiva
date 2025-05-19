@@ -9,7 +9,7 @@ import MembersTab from "./MembersTab";
 import { useState, useMemo } from "react";
 
 const Skeleton = ({ className }: { className: string }) => (
-  <div className={`bg-gray-200 animate-pulse rounded ${className}`}></div>
+  <div className={`bg-stone-200 animate-pulse rounded ${className}`}></div>
 );
 
 const OrganizationDetail = () => {
@@ -66,8 +66,8 @@ const OrganizationDetail = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                  <span className="text-4xl font-bold text-gray-400">
+                <div className="w-full h-full bg-stone-100 flex items-center justify-center">
+                  <span className="text-4xl font-bold text-stone-400">
                     {organization.name?.charAt(0).toUpperCase() || "O"}
                   </span>
                 </div>
@@ -84,26 +84,6 @@ const OrganizationDetail = () => {
         )}
 
         <section className="container mx-auto max-w-3xl py-4 space-y-6">
-          {/* Refresh Button */}
-          {/* <div className="flex justify-end items-center">
-            <div className="flex items-center gap-2">
-              {lastRefreshed && (
-                <span className="text-xs text-gray-500">
-                  Last refreshed: {lastRefreshed.toLocaleTimeString()}
-                </span>
-              )}
-              <Button
-                onClick={handleRefresh}
-                variant="secondary"
-                size="sm"
-                disabled={loading}
-              >
-                {loading ? "Refreshing..." : "Refresh Data"}
-              </Button>
-            </div>
-          </div> */}
-
-          {/* Loading/Error States */}
           {loading ? (
             <div className="bg-white rounded-lg p-8 border-2 border-black space-y-4">
               <Skeleton className="w-2/3 h-8" />
@@ -127,22 +107,22 @@ const OrganizationDetail = () => {
                 onValueChange={setActiveTab}
                 className="w-full"
               >
-                <TabsList className="w-full grid grid-cols-3 h-14 bg-white border-b border-gray-200 rounded-none p-0">
+                <TabsList className="w-full grid grid-cols-3 h-14 bg-white border-b border-stone-200 rounded-none p-0">
                   <TabsTrigger
                     value="ballots"
-                    className="rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-gray-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-gray-50"
+                    className="cursor-pointer rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-stone-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-stone-100"
                   >
                     Ballots
                   </TabsTrigger>
                   <TabsTrigger
                     value="members"
-                    className="rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-gray-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-gray-50"
+                    className="cursor-pointer rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-stone-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-stone-100"
                   >
                     Members
                   </TabsTrigger>
                   <TabsTrigger
                     value="about"
-                    className="rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-gray-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-gray-50"
+                    className="cursor-pointer rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-stone-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-stone-100"
                   >
                     About
                   </TabsTrigger>

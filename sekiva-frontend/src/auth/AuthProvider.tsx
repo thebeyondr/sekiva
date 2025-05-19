@@ -4,16 +4,7 @@ import { AuthContext } from "@/auth/AuthContext";
 import { SessionManager } from "./SessionManager";
 import { SenderAuthentication } from "@partisiablockchain/blockchain-api-transaction-client";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { CLIENT } from "@/partisia-config";
-import { deserializeState as deserializeOrgState } from "@/contracts/OrganizationGenerated";
-
-interface ContractData {
-  serializedContract: {
-    state: {
-      data: string;
-    };
-  };
-}
+import { getOrganizationState } from "@/hooks/useOrganizationContract";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<SenderAuthentication | null>(null);
@@ -50,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccount(restoredAccount);
           setConnectError(null);
         }
-        console.log("Restored session from storage, address:", address);
       } catch (error) {
         console.error("Failed to restore session:", error);
         if (isMounted) {
@@ -123,20 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isConnected || !account || !walletAddress) return false;
 
       try {
-        // Get organization state directly
-        const contract = (await CLIENT.getContractData(
-          collectiveId,
-          true
-        )) as ContractData;
-        if (!contract?.serializedContract?.state?.data) return false;
-
-        const stateBuffer = Buffer.from(
-          contract.serializedContract.state.data,
-          "base64"
-        );
-        const state = deserializeOrgState(stateBuffer);
-
+        const state = await getOrganizationState(collectiveId);
         const userAddress = BlockchainAddress.fromString(walletAddress);
+
         return (
           state.owner.asString() === userAddress.asString() ||
           state.administrators.some(
@@ -159,23 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canPerformAction = useCallback(
     async (actionType: string, targetId?: string): Promise<boolean> => {
-      if (!isConnected || !account || !walletAddress || !targetId) return false;
+      if (!isConnected || !account || !walletAddress || !targetId) {
+        return false;
+      }
 
       try {
-        // Get organization state directly
-        const contract = (await CLIENT.getContractData(
-          targetId,
-          true
-        )) as ContractData;
-        if (!contract?.serializedContract?.state?.data) return false;
-
-        const stateBuffer = Buffer.from(
-          contract.serializedContract.state.data,
-          "base64"
-        );
-        const state = deserializeOrgState(stateBuffer);
-
+        const state = await getOrganizationState(targetId);
         const userAddress = BlockchainAddress.fromString(walletAddress);
+
         const isOwner = state.owner.asString() === userAddress.asString();
         const isAdmin = state.administrators.some(
           (admin) => admin.asString() === userAddress.asString()
@@ -184,62 +154,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (member) => member.asString() === userAddress.asString()
         );
 
+        let result = false;
         switch (actionType) {
           case "create_ballot":
-            // Owners and administrators can create ballots
-            return isOwner || isAdmin;
-
+            result = isOwner || isAdmin;
+            break;
           case "vote":
-            // Owners, administrators and members can vote
-            return isOwner || isAdmin || isMember;
-
+            result = isOwner || isAdmin || isMember;
+            break;
           case "create_collective":
-            // Anyone connected can create a collective
-            return true;
-
+            result = true;
+            break;
           case "manage_members":
-            // Owners and administrators can manage members
-            return isOwner || isAdmin;
-
+            result = isOwner || isAdmin;
+            break;
           case "manage_admins":
-            // Only owners can manage administrators
-            return isOwner;
-
+            result = isOwner;
+            break;
           case "transfer_ownership":
-            // Only the owner can transfer ownership
-            return isOwner;
-
+            result = isOwner;
+            break;
           case "update_metadata":
-            // Owners and administrators can update organization metadata
-            return isOwner || isAdmin;
-
+            result = isOwner || isAdmin;
+            break;
           case "delete_collective":
-            // Only the owner can delete the collective
-            return isOwner;
-
+            result = isOwner;
+            break;
           default:
-            return false;
+            result = false;
         }
+
+        return result;
       } catch (error) {
-        console.error(`Permission check failed for ${actionType}:`, error);
+        console.error("[Auth] Permission check failed:", error);
         return false;
       }
     },
     [isConnected, account, walletAddress]
   );
-
-  // Debug output in development
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("Auth state:", {
-        walletAddress,
-        isConnected,
-        isConnecting,
-        connectError,
-        account: account?.getAddress(),
-      });
-    }
-  }, [walletAddress, isConnected, isConnecting, connectError, account]);
 
   return (
     <AuthContext.Provider

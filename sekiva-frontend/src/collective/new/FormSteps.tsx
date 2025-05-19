@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { OrganizationInit } from "@/contracts/SekivaFactoryGenerated";
 import { useDeployOrganization } from "@/hooks/useFactoryContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import {
   CheckCircle2,
   Shield,
@@ -34,9 +34,31 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
   const [currStep, setCurrStep] = useState<"define" | "members">("define");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { account, isConnected, connect } = useAuth();
+  const { account, isConnected, connect, isConnecting, disconnect } = useAuth();
   const { mutate: deployOrganization, isPending: isDeploying } =
     useDeployOrganization();
+
+  // Replace silent connection with explicit user notification
+  const ensureWalletConnection = async () => {
+    // If already connected, no need to do anything
+    if (isConnected && account) return true;
+
+    try {
+      // Disconnect first to ensure a fresh connection
+      if (isConnected) {
+        await disconnect();
+      }
+
+      // Now connect with full wallet initialization
+      await connect();
+      console.log("Wallet connected successfully for transaction signing");
+      return true;
+    } catch (err) {
+      console.error("Error connecting wallet:", err);
+      setError("Please connect your wallet using the Connect button");
+      return false;
+    }
+  };
 
   // Notify parent component when step changes
   useEffect(() => {
@@ -61,9 +83,10 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
         setError(null);
         setSuccessMessage(null);
 
-        // Check if user is connected
+        // Check wallet connection with enhanced method
+        const isConnected = await ensureWalletConnection();
         if (!isConnected || !account) {
-          connect();
+          setError("Please connect your wallet to create a collective");
           return;
         }
 
@@ -101,6 +124,9 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
       }
     },
   });
+
+  // Use the useStore hook to subscribe to form values
+  const formValues = useStore(form.store, (state) => state.values);
 
   const handleNextStep = () => {
     // Validate all fields in the current step
@@ -151,6 +177,29 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
           <h1 className="text-2xl xl:text-4xl font-normal tracking-tighter py-3">
             Define your collective.
           </h1>
+
+          {!isConnected && (
+            <div className="mb-6 flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-sm">
+              <UserCircle className="h-5 w-5 flex-shrink-0 text-stone-700" />
+              <div className="flex flex-col">
+                <p className="text-sm font-medium text-stone-700">
+                  {isConnecting
+                    ? "Connecting to your wallet..."
+                    : "Connect your wallet to create a collective."}
+                </p>
+                {!isConnecting && (
+                  <button
+                    type="button"
+                    onClick={() => ensureWalletConnection()}
+                    className="text-xs text-stone-800 hover:text-black font-medium mt-1 flex items-center gap-1 w-fit"
+                  >
+                    Connect now
+                    <span className="text-xs">→</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="mb-6 flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-sm text-amber-800">
             <UserCircle className="h-5 w-5 flex-shrink-0" />
@@ -279,9 +328,7 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
               )}
             </form.Field>
 
-            <form.Subscribe selector={(state) => state.values}>
-              {(values) => <CollectivePreview formValues={values} />}
-            </form.Subscribe>
+            <CollectivePreview formValues={formValues} />
           </div>
         </>
       )}
@@ -308,6 +355,29 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
           </h1>
 
           <div className="mb-6 flex flex-col gap-3">
+            {!isConnected && (
+              <div className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-sm">
+                <UserCircle className="h-5 w-5 flex-shrink-0 text-stone-700" />
+                <div className="flex flex-col">
+                  <p className="text-sm font-medium text-stone-700">
+                    {isConnecting
+                      ? "Connecting to your wallet..."
+                      : "Connect your wallet to create a collective."}
+                  </p>
+                  {!isConnecting && (
+                    <Button
+                      type="button"
+                      onClick={() => ensureWalletConnection()}
+                      className="cursor-pointer text-xs text-stone-800 hover:text-black font-medium mt-1 flex items-center gap-1 w-fit"
+                    >
+                      Connect now
+                      <span className="text-xs">→</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-sm text-gray-700">
               <Shield className="h-5 w-5 flex-shrink-0" />
               <p className="text-sm">
@@ -319,6 +389,7 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
               </p>
             </div>
 
+            {/* Comment out this unused element */}
             {/* <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-sm text-gray-700">
               <Share2 className="h-5 w-5 flex-shrink-0" />
               <p className="text-sm">
@@ -331,9 +402,6 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
           <div className="flex flex-col gap-4 w-full">
             <form.Field name="members" mode="array">
               {(field) => {
-                const isFirstField = field.state.value.length === 0;
-                if (isFirstField)
-                  field.pushValue({ address: "", role: "member" });
                 return (
                   <div className="flex flex-col gap-6 w-full">
                     <p className="text-sm font-medium text-gray-700">
@@ -445,6 +513,18 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
                                   </Label>
                                 )}
                               </form.Field>
+                              <button
+                                type="button"
+                                className="mt-8 text-sm text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                  // Create a new array without this item
+                                  const newArray = [...field.state.value];
+                                  newArray.splice(i, 1);
+                                  field.setValue(newArray);
+                                }}
+                              >
+                                Remove
+                              </button>
                             </div>
                             {/* Error message row - aligned with wallet address field */}
                             {hasAddressError && (
@@ -460,13 +540,8 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
                       className="mt-2 shadow-none border border-gray-300 text-gray-700 hover:bg-gray-50"
                       variant="outline"
                       onClick={() => {
-                        // Check if previous field is not empty if the index is not 0
-                        if (
-                          field.state.value[field.state.value.length - 1]
-                            .address !== ""
-                        ) {
-                          field.pushValue({ address: "", role: "member" });
-                        }
+                        // Always allow adding new members
+                        field.pushValue({ address: "", role: "member" });
                       }}
                       type="button"
                     >
@@ -478,23 +553,16 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
             </form.Field>
           </div>
 
-          {!isConnected && (
-            <div className="mt-4 p-3 flex items-center gap-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-sm">
-              <div className="h-5 w-5 flex-shrink-0">⚠️</div>
-              <p>Connect your wallet to continue</p>
-            </div>
-          )}
-
           {error && (
-            <div className="mt-4 p-3 flex items-center gap-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-sm">
+            <div className="mt-4 p-3 flex items-center gap-2 bg-red-50 text-red-700 border border-red-200 rounded-sm">
               <div className="h-5 w-5 flex-shrink-0">⚠️</div>
               <p>{error}</p>
             </div>
           )}
 
           {successMessage && (
-            <div className="mt-4 p-3 flex items-center gap-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-sm">
-              <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-gray-600" />
+            <div className="mt-4 p-3 flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 rounded-sm">
+              <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600" />
               <p>{successMessage}</p>
             </div>
           )}
@@ -513,11 +581,25 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
           </Button>
           <Button
             type="button"
-            onClick={handleSkipMembers}
-            className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center gap-2"
+            onClick={!isConnected ? ensureWalletConnection : handleSkipMembers}
+            className={`w-full flex items-center gap-2 ${
+              !isConnected
+                ? "bg-black hover:bg-stone-800"
+                : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+            }`}
           >
-            <span>skip members</span>
-            <SkipForward className="h-4 w-4" />
+            <span>
+              {isConnecting
+                ? "connecting..."
+                : !isConnected
+                  ? "connect wallet"
+                  : "skip members"}
+            </span>
+            {!isConnected ? (
+              <UserCircle className="h-4 w-4" />
+            ) : (
+              <SkipForward className="h-4 w-4" />
+            )}
           </Button>
         </div>
       )}
@@ -532,23 +614,44 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
           >
             previous: add details
           </Button>
-          <Button
-            type="submit"
-            disabled={isDeploying || !isConnected}
-            className="w-full flex items-center gap-2"
-          >
-            {isDeploying ? (
-              <>
-                <span>submitting...</span>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-              </>
-            ) : (
-              <>
-                <span>create collective</span>
-                <CheckCircle2 className="h-4 w-4" />
-              </>
-            )}
-          </Button>
+          {!isConnected ? (
+            <Button
+              type="button"
+              onClick={ensureWalletConnection}
+              className="w-full flex items-center gap-2 bg-black hover:bg-stone-800"
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <>
+                  <span>connecting...</span>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                </>
+              ) : (
+                <>
+                  <span>connect wallet</span>
+                  <UserCircle className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              disabled={isDeploying}
+              className="w-full flex items-center gap-2"
+            >
+              {isDeploying ? (
+                <>
+                  <span>submitting...</span>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                </>
+              ) : (
+                <>
+                  <span>create collective</span>
+                  <CheckCircle2 className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
     </form>

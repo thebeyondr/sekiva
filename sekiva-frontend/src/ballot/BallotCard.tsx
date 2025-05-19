@@ -29,14 +29,13 @@ const BallotCard = ({
   hasVoted,
   variant = "default",
 }: BallotCardComponentProps) => {
-  // Determine status styling
   const getStatusStyles = (status: BallotCardProps["status"]) => {
     switch (status) {
       case "active":
         return "bg-green-200 text-black";
       case "completed":
         return "bg-stone-800 text-white";
-      case "pending":
+      case "tallying":
         return "bg-amber-100 text-stone-800";
       default:
         return "bg-stone-200 text-stone-800";

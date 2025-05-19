@@ -12,9 +12,10 @@ import {
   SentTransaction,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
-const FACTORY_ADDRESS = "0260ad74b28b38c48409f55b5f4a60ec6898ebfc1e";
+// 0260ad74b28b38c48409f55b5f4a60ec6898ebfc1e
+const FACTORY_ADDRESS = "02e2001a2aa0ad2caf29687d5b8e6fb7dfb1d5f1ff";
 
 function getByAddress<K extends { asString?: () => string } | string, V>(
   map: Map<K, V>,
@@ -61,17 +62,24 @@ export function useFactoryContract() {
     return deserializeState(stateBuffer);
   };
 
-  return {
-    getState,
-    getOrganizations: async () => {
-      const state = await getState();
-      return state.organizations;
-    },
-    getUserMemberships: async (address: BlockchainAddress) => {
-      const state = await getState();
-      return getByAddress(state.userOrgMemberships, address) || [];
-    },
+  const getOrganizations = async () => {
+    const state = await getState();
+    return state.organizations;
   };
+
+  const getUserMemberships = async (address: BlockchainAddress) => {
+    const state = await getState();
+    return getByAddress(state.userOrgMemberships, address) || [];
+  };
+
+  return useMemo(
+    () => ({
+      getState,
+      getOrganizations,
+      getUserMemberships,
+    }),
+    []
+  );
 }
 
 export interface TransactionPointer {

@@ -14,7 +14,6 @@ function FieldInfo({
           {errors?.join(", ") || field.state.meta.errors.join(", ")}
         </em>
       ) : null}
-      {field.state.meta.isValidating ? "Validating..." : null}
     </>
   );
 }

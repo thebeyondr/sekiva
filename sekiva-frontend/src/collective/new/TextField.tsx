@@ -1,22 +1,23 @@
-import { useStore } from "@tanstack/react-form";
-import { useFieldContext } from "@/collective/new/FormContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import FieldInfo from "@/components/shared/FieldInfo";
 import { Textarea } from "@/components/ui/textarea";
+import { AnyFieldApi } from "@tanstack/react-form";
 
-export default function TextField({
-  label,
-  placeholder,
-  type = "text",
-}: {
+interface TextFieldProps {
+  field: AnyFieldApi;
   label: string;
   placeholder: string;
   type?: "text" | "textarea";
-}) {
-  const field = useFieldContext<string>();
+}
 
-  const errors = useStore(field.store, (state) => state.meta.errors);
+export function TextField({
+  field,
+  label,
+  placeholder,
+  type = "text",
+}: TextFieldProps) {
+  const errors = field.state.meta.errors;
 
   return (
     <div>
@@ -25,24 +26,22 @@ export default function TextField({
       </Label>
       {type === "text" ? (
         <Input
-          value={field.state.value}
+          value={field.state.value || ""}
           onChange={(e) => field.handleChange(e.target.value)}
           onBlur={field.handleBlur}
           placeholder={placeholder}
           className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 ${
-            field.state.meta.errors.length > 0
-              ? "border-red-500 ring-red-500 ring"
-              : ""
+            errors.length > 0 ? "border-red-500 ring-red-500 ring" : ""
           }`}
         />
       ) : (
         <Textarea
-          value={field.state.value}
+          value={field.state.value || ""}
           onChange={(e) => field.handleChange(e.target.value)}
           onBlur={field.handleBlur}
           placeholder={placeholder}
           className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 ${
-            field.state.meta.errors.length > 0 ? "border-red-500" : ""
+            errors.length > 0 ? "border-red-500" : ""
           }`}
         />
       )}

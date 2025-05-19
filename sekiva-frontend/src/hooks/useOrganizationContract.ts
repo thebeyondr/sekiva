@@ -1,10 +1,15 @@
 import { useAuth } from "@/auth/useAuth";
-import { CLIENT, TESTNET_URL } from "@/partisia-config";
+import { TESTNET_URL, SHARD_PRIORITY } from "@/partisia-config";
 import {
   OrganizationState,
   deserializeState,
   deployBallot,
   BallotInit,
+  addAdministrator,
+  removeAdministrator,
+  addMember,
+  removeMember,
+  addMembers,
 } from "@/contracts/OrganizationGenerated";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import {
@@ -19,42 +24,200 @@ import {
 } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { useBallotContract } from "./useBallotContract";
+import { ShardId } from "@/partisia-config";
+
+export type OrganizationId = string;
+
+export type Organization = OrganizationState & {
+  lastUpdated: number;
+  shardId: ShardId;
+};
 
 export interface TransactionPointer {
   identifier: string;
   destinationShardId: string;
 }
 
-export function useOrganizationContract() {
-  const getState = async (address: string): Promise<OrganizationState> => {
-    const contract = await CLIENT.getContractData(address, true);
-    if (!contract) throw new Error("Could not find data for contract");
-    let stateBuffer: Buffer;
-    if (typeof contract.serializedContract === "string") {
-      stateBuffer = Buffer.from(contract.serializedContract, "base64");
-    } else if (
-      typeof contract.serializedContract === "object" &&
-      contract.serializedContract !== null &&
-      "data" in contract.serializedContract &&
-      typeof (contract.serializedContract as { data?: string }).data ===
-        "string"
-    ) {
-      stateBuffer = Buffer.from(
-        (contract.serializedContract as { data: string }).data,
-        "base64"
-      );
-    } else {
-      throw new Error("Unexpected contract state format");
+const fetchOrganizationFromShard = async (
+  id: OrganizationId,
+  shard: ShardId
+): Promise<Organization> => {
+  const response = await fetch(
+    `${TESTNET_URL}/shards/${shard}/blockchain/contracts/${id}`
+  ).then((res) => res.json());
+
+  if (!response?.serializedContract?.state?.data) {
+    throw new Error(`No contract data from ${shard}`);
+  }
+
+  const stateBuffer = Buffer.from(
+    response.serializedContract.state.data,
+    "base64"
+  );
+  const state = deserializeState(stateBuffer);
+  return { ...state, lastUpdated: Date.now(), shardId: shard };
+};
+
+export const getOrganizationState = async (
+  id: OrganizationId
+): Promise<Organization> => {
+  let lastError: Error | null = null;
+
+  for (const shard of SHARD_PRIORITY) {
+    try {
+      const org = await fetchOrganizationFromShard(id, shard);
+      return org;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (shard === SHARD_PRIORITY[SHARD_PRIORITY.length - 1]) {
+        throw lastError;
+      }
+      continue;
     }
-    const state = deserializeState(stateBuffer);
-    return state;
-  };
+  }
+  throw lastError;
+};
+
+export function useOrganizationContract() {
+  const { account } = useAuth();
+  const queryClient = useQueryClient();
+
+  const addMemberMutation = useMutation({
+    mutationFn: async ({
+      orgAddress,
+      memberAddress,
+    }: {
+      orgAddress: string;
+      memberAddress: string;
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
+      const rpc = addMember(BlockchainAddress.fromString(memberAddress));
+      const txn = await txClient.signAndSend(
+        { address: orgAddress, rpc },
+        100_000
+      );
+      return txn;
+    },
+    onSuccess: (_, { orgAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async ({
+      orgAddress,
+      memberAddress,
+    }: {
+      orgAddress: string;
+      memberAddress: string;
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
+      const rpc = removeMember(BlockchainAddress.fromString(memberAddress));
+      const txn = await txClient.signAndSend(
+        { address: orgAddress, rpc },
+        100_000
+      );
+      return txn;
+    },
+    onSuccess: (_, { orgAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
+    },
+  });
+
+  const promoteMemberMutation = useMutation({
+    mutationFn: async ({
+      orgAddress,
+      memberAddress,
+    }: {
+      orgAddress: string;
+      memberAddress: string;
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
+      const rpc = addAdministrator(BlockchainAddress.fromString(memberAddress));
+      const txn = await txClient.signAndSend(
+        { address: orgAddress, rpc },
+        100_000
+      );
+      return txn;
+    },
+    onSuccess: (_, { orgAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
+    },
+  });
+
+  const demoteMemberMutation = useMutation({
+    mutationFn: async ({
+      orgAddress,
+      memberAddress,
+    }: {
+      orgAddress: string;
+      memberAddress: string;
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
+      const rpc = removeAdministrator(
+        BlockchainAddress.fromString(memberAddress)
+      );
+      const txn = await txClient.signAndSend(
+        { address: orgAddress, rpc },
+        100_000
+      );
+      return txn;
+    },
+    onSuccess: (_, { orgAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
+    },
+  });
+
+  const addMembersMutation = useMutation({
+    mutationFn: async ({
+      orgAddress,
+      memberAddresses,
+    }: {
+      orgAddress: string;
+      memberAddresses: string[];
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
+      const addresses = memberAddresses.map((addr) =>
+        BlockchainAddress.fromString(addr)
+      );
+      const rpc = addMembers(addresses);
+      const txn = await txClient.signAndSend(
+        { address: orgAddress, rpc },
+        100_000
+      );
+      return txn;
+    },
+    onSuccess: (_, { orgAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
+    },
+  });
 
   return useMemo(
     () => ({
-      getState,
+      getState: getOrganizationState,
+      addMember: (orgAddress: string, memberAddress: string) =>
+        addMemberMutation.mutateAsync({ orgAddress, memberAddress }),
+      removeMember: (orgAddress: string, memberAddress: string) =>
+        removeMemberMutation.mutateAsync({ orgAddress, memberAddress }),
+      promoteMember: (orgAddress: string, memberAddress: string) =>
+        promoteMemberMutation.mutateAsync({ orgAddress, memberAddress }),
+      demoteMember: (orgAddress: string, memberAddress: string) =>
+        demoteMemberMutation.mutateAsync({ orgAddress, memberAddress }),
+      addMembers: (orgAddress: string, memberAddresses: string[]) =>
+        addMembersMutation.mutateAsync({ orgAddress, memberAddresses }),
     }),
-    []
+    [
+      addMemberMutation,
+      removeMemberMutation,
+      promoteMemberMutation,
+      demoteMemberMutation,
+      addMembersMutation,
+    ]
   );
 }
 
@@ -122,49 +285,20 @@ export function useOrganizationWithBallots(orgAddress: BlockchainAddress) {
   // Get the organization state
   const orgQuery = useQuery({
     queryKey: ["organization", orgAddress.asString()],
-    queryFn: () => {
-      console.log(
-        "[useOrganizationWithBallots] Fetching org state for",
-        orgAddress.asString()
-      );
-      return getState(orgAddress.asString());
-    },
+    queryFn: () => getState(orgAddress.asString()),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
-  });
-
-  console.log("[useOrganizationWithBallots] Org query state:", {
-    isLoading: orgQuery.isLoading,
-    error: orgQuery.error,
-    data: orgQuery.data
-      ? {
-          ...orgQuery.data,
-          ballots: orgQuery.data.ballots?.map((b) => b.asString()),
-        }
-      : null,
   });
 
   // Get all ballots for the organization in parallel
   const ballotStatesQueries = useQueries({
     queries: (orgQuery.data?.ballots || []).map((ballotAddress) => ({
       queryKey: ["ballot", ballotAddress.asString()],
-      queryFn: () => {
-        console.log(
-          "[useOrganizationWithBallots] Fetching ballot state for",
-          ballotAddress.asString()
-        );
-        return getBallotState(ballotAddress.asString());
-      },
+      queryFn: () => getBallotState(ballotAddress.asString()),
       staleTime: 30_000,
       gcTime: 5 * 60_000,
       enabled: !!orgQuery.data?.ballots,
     })),
-  });
-
-  console.log("[useOrganizationWithBallots] Ballot queries state:", {
-    isLoading: ballotStatesQueries.some((q) => q.isLoading),
-    errors: ballotStatesQueries.map((q) => q.error).filter(Boolean),
-    data: ballotStatesQueries.map((q) => q.data),
   });
 
   // Combine organization with its ballots

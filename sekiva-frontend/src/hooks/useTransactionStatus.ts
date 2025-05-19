@@ -30,7 +30,6 @@ const fetchTransactionFromShard = async (
   id: string,
   shard: string
 ): Promise<TransactionData> => {
-  console.log(`[Transaction] Checking shard ${shard} for transaction ${id}`);
   const url = `${TESTNET_URL}/chain/shards/${shard}/transactions/${id}`;
 
   const response = await fetch(url);
@@ -41,7 +40,6 @@ const fetchTransactionFromShard = async (
   }
 
   const data = await response.json();
-  console.log(`[Transaction] Found transaction in shard ${shard}:`, data);
   return data as TransactionData;
 };
 
@@ -94,11 +92,6 @@ export function useTransactionStatus(
 
       return data;
     } catch (initialError) {
-      console.log(
-        `[Transaction] Initial shard ${initialShard} failed:`,
-        initialError
-      );
-
       // If the initial shard fails, try each shard in the priority list
       let lastError = initialError;
       for (const shard of SHARD_PRIORITY) {
@@ -132,7 +125,6 @@ export function useTransactionStatus(
 
           return data;
         } catch (error) {
-          console.log(`[Transaction] Shard ${shardId} failed:`, error);
           lastError = error;
         }
       }
@@ -173,10 +165,6 @@ export function useTransactionStatus(
             data.executionStatus?.success ||
             status.isError)
         ) {
-          console.log(
-            `[Transaction] Polling stopped - transaction successful, finalized or error`,
-            data
-          );
           clearInterval(intervalId);
         } else {
           retryCount++;
@@ -184,9 +172,6 @@ export function useTransactionStatus(
           // Adjust polling interval based on retry count
           clearInterval(intervalId);
           const newInterval = calculateInterval();
-          console.log(
-            `[Transaction] Adjusting poll interval to ${newInterval}ms after ${retryCount} tries`
-          );
           intervalId = setInterval(pollStatus, newInterval);
         }
       } catch (error) {

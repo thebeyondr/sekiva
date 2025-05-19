@@ -1,40 +1,67 @@
-import NavBar from "@/components/shared/NavBar";
 import sekivaLogo from "@/assets/sekiva-logo-lg.webp";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "@tanstack/react-form";
-import { useState, useEffect } from "react";
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useAuth } from "@/auth/useAuth";
-import { useNavigate, useParams } from "react-router";
-import { Link } from "react-router";
-import { useOrganizationContract } from "@/hooks/useOrganizationContract";
+import NavBar from "@/components/shared/NavBar";
+import { TransactionDialog } from "@/components/shared/TransactionDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  TransactionPointer,
+  useDeployBallot,
+} from "@/hooks/useOrganizationContract";
+import { BlockchainAddress } from "@partisiablockchain/abi-client";
+import { useForm } from "@tanstack/react-form";
+import BN from "bn.js";
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router";
+
+type DurationOption = keyof typeof DURATION_OPTIONS;
+
+// Duration options in seconds
+const DURATION_OPTIONS = {
+  "5 minutes (dev only)": 5 * 60,
+  "3 days": 3 * 24 * 60 * 60,
+  "1 week": 7 * 24 * 60 * 60,
+  "2 weeks": 14 * 24 * 60 * 60,
+  "1 month": 30 * 24 * 60 * 60,
+} as const;
 
 function NewBallot() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { isAuthenticated, account } = useAuth();
-  const navigate = useNavigate();
+  const [txDetails, setTxDetails] = useState<TransactionPointer | null>(null);
+  const { account } = useAuth();
   const { organizationId: collectiveId } = useParams();
-  const { deployBallot } = useOrganizationContract();
+  const {
+    mutate: deployBallot,
+    isPending: isDeploying,
+    transactionPointer,
+  } = useDeployBallot();
 
   const [testBallotData, setTestBallotData] = useState<{
     title: string;
     description: string;
     options: string[];
     organization: BlockchainAddress;
+    durationSeconds: BN;
   } | null>(null);
 
   useEffect(() => {
-    console.log("collectiveId", collectiveId);
-    return setTestBallotData({
+    if (!collectiveId) return;
+    setTestBallotData({
       title: "Test Ballot",
       description: "This is a test ballot for development purposes",
       options: ["Option 1", "Option 2", "Option 3"],
-      organization: BlockchainAddress.fromString(collectiveId!),
+      organization: BlockchainAddress.fromString(collectiveId),
+      durationSeconds: new BN(DURATION_OPTIONS["5 minutes (dev only)"]),
     });
   }, [collectiveId]);
 
@@ -44,17 +71,15 @@ function NewBallot() {
       description: "",
       options: [] as string[],
       organization: collectiveId || "",
+      duration: "3 days" as DurationOption,
     },
     onSubmit: async ({ value }) => {
-      setIsSubmitting(true);
       setError(null);
       setSuccessMessage(null);
+      setTxDetails(null);
 
       try {
-        console.log("Submitting ballot:", value);
-
-        // Check if user is authenticated
-        if (!isAuthenticated) {
+        if (!account) {
           throw new Error("You need to connect your wallet first");
         }
 
@@ -62,7 +87,6 @@ function NewBallot() {
           throw new Error("Organization address is required");
         }
 
-        // Clean up options (remove empty ones)
         const cleanOptions = value.options.filter(
           (option) => option.trim() !== ""
         );
@@ -71,42 +95,40 @@ function NewBallot() {
           throw new Error("At least 2 options are required");
         }
 
-        // Get the factory API directly from AppState
-        // const factoryApi = FactoryApi();
-
-        // Convert organization address to BlockchainAddress
         const organizationAddress = BlockchainAddress.fromString(
           value.organization
         );
 
-        // TODO: Deploy the ballot
-
-        const result = organizationAddress;
-
-        // Deploy the ballot
-        // const result = await factoryApi.deployBallot(
-        //   cleanOptions,
-        //   value.title,
-        //   value.description,
-        //   organizationAddress
-        // );
-
-        console.log("Ballot deployed! Transaction:", result);
-
-        // Show success message
-        setSuccessMessage(
-          "Your ballot has been created successfully. You'll be redirected to the organization page where you can see your ballot once the blockchain transaction is confirmed."
+        deployBallot(
+          {
+            organizationAddress,
+            ballotInfo: {
+              options: cleanOptions,
+              title: value.title,
+              description: value.description,
+              administrator: BlockchainAddress.fromString(account.getAddress()),
+              durationSeconds: new BN(DURATION_OPTIONS[value.duration]),
+            },
+          },
+          {
+            onSuccess: (data) => {
+              if (transactionPointer) {
+                setTxDetails(transactionPointer);
+              } else if (data.transactionPointer) {
+                setTxDetails({
+                  identifier: data.transactionPointer.identifier,
+                  destinationShardId:
+                    data.transactionPointer.destinationShardId.toString(),
+                });
+              }
+            },
+            onError: (error) => {
+              setError(error instanceof Error ? error.message : String(error));
+            },
+          }
         );
-
-        // Navigate to the collective details page after a short delay
-        setTimeout(() => {
-          navigate(`/collectives/${value.organization}`);
-        }, 2000);
       } catch (error) {
-        console.error("Error creating ballot:", error);
         setError(error instanceof Error ? error.message : String(error));
-      } finally {
-        setIsSubmitting(false);
       }
     },
   });
@@ -138,20 +160,26 @@ function NewBallot() {
                 type="button"
                 onClick={() => {
                   if (testBallotData) {
-                    deployBallot(BlockchainAddress.fromString(collectiveId!), {
-                      options: testBallotData.options,
-                      title: testBallotData.title,
-                      description: testBallotData.description,
-                      administrator: BlockchainAddress.fromString(
-                        account!.getAddress()
+                    deployBallot({
+                      organizationAddress: BlockchainAddress.fromString(
+                        collectiveId!
                       ),
+                      ballotInfo: {
+                        options: testBallotData.options,
+                        title: testBallotData.title,
+                        description: testBallotData.description,
+                        administrator: BlockchainAddress.fromString(
+                          account.getAddress()
+                        ),
+                        durationSeconds: testBallotData.durationSeconds,
+                      },
                     });
                   }
                 }}
                 className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"
-                disabled={isSubmitting}
+                disabled={isDeploying}
               >
-                {isSubmitting
+                {isDeploying
                   ? "Deploying..."
                   : "Fill Test Ballot Data (Dev Only)"}
               </Button>
@@ -299,8 +327,11 @@ function NewBallot() {
                                 {5 - field.state.value.length} remaining
                               </p>
                               {field.state.value.map((_, i) => (
-                                <div className="flex gap-2 w-full" key={i}>
-                                  <p className="mt-3 flex items-center justify-center text-lg uppercase font-medium tracking-wide text-stone-700 bg-blue-500/20 rounded-sm p-1 my-auto w-10 h-10">
+                                <div
+                                  className="flex items-center gap-2 w-full"
+                                  key={i}
+                                >
+                                  <p className="flex items-center justify-center text-lg uppercase font-medium tracking-wide text-stone-700 bg-blue-500/20 rounded-sm p-1 w-10 h-10">
                                     {i + 1}
                                   </p>
                                   <form.Field
@@ -364,35 +395,102 @@ function NewBallot() {
                       </form.Field>
                     </div>
 
-                    {!isAuthenticated && (
+                    {/* Duration Field */}
+                    <form.Field
+                      name="duration"
+                      validators={{
+                        onBlur: ({ value }) =>
+                          !value ? "Duration is required" : undefined,
+                      }}
+                    >
+                      {(field) => (
+                        <div>
+                          <Label className="text-sm uppercase font-medium tracking-wide text-stone-700">
+                            Voting Duration
+                          </Label>
+                          <Select
+                            value={field.state.value}
+                            onValueChange={(value: DurationOption) =>
+                              field.handleChange(value)
+                            }
+                            disabled={process.env.NODE_ENV !== "development"}
+                          >
+                            <SelectTrigger className="shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90">
+                              <SelectValue placeholder="Select duration" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(
+                                Object.entries(DURATION_OPTIONS) as [
+                                  DurationOption,
+                                  number,
+                                ][]
+                              ).map(([label, seconds]) => (
+                                <SelectItem
+                                  key={label}
+                                  value={label}
+                                  disabled={
+                                    process.env.NODE_ENV !== "development" &&
+                                    label === "5 minutes (dev only)"
+                                  }
+                                >
+                                  {label} ({Math.floor(seconds / 3600)} hours)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {!field.state.meta.isValid &&
+                            field.state.meta.isTouched && (
+                              <p className="text-xs text-red-500 mt-1">
+                                {field.state.meta.errors.join(", ")}
+                              </p>
+                            )}
+                        </div>
+                      )}
+                    </form.Field>
+
+                    {!account && (
                       <div className="mt-4 p-3 bg-red-50 text-red-500 border border-red-200 rounded-sm">
                         You need to connect your wallet first
                       </div>
                     )}
 
-                    {error && (
-                      <div className="mt-4 p-3 bg-red-50 text-red-500 border border-red-200 rounded-sm">
-                        {error}
-                      </div>
-                    )}
-
-                    {successMessage && (
-                      <div className="mt-4 p-3 bg-green-50 text-green-600 border border-green-200 rounded-sm">
-                        {successMessage}
-                      </div>
-                    )}
-
-                    <Button
-                      type="submit"
-                      className="w-full mt-4"
-                      disabled={
-                        isSubmitting ||
-                        form.state.isSubmitting ||
-                        !isAuthenticated
-                      }
+                    <form.Subscribe
+                      selector={(formState) => ({
+                        errors: formState.errors,
+                        isSubmitting: formState.isSubmitting,
+                        canSubmit: formState.canSubmit,
+                      })}
                     >
-                      {isSubmitting ? "Creating..." : "Create ballot"}
-                    </Button>
+                      {({ errors, isSubmitting, canSubmit }) => (
+                        <>
+                          {errors.length > 0 && (
+                            <div className="mt-4 p-3 bg-red-50 text-red-500 border border-red-200 rounded-sm">
+                              {errors.join(", ")}
+                            </div>
+                          )}
+
+                          {error && (
+                            <div className="mt-4 p-3 bg-red-50 text-red-500 border border-red-200 rounded-sm">
+                              {error}
+                            </div>
+                          )}
+
+                          {successMessage && (
+                            <div className="mt-4 p-3 bg-green-50 text-green-600 border border-green-200 rounded-sm">
+                              {successMessage}
+                            </div>
+                          )}
+
+                          <Button
+                            type="submit"
+                            className="w-full mt-4"
+                            disabled={!canSubmit || isSubmitting || !account}
+                          >
+                            {isSubmitting ? "Creating..." : "Create ballot"}
+                          </Button>
+                        </>
+                      )}
+                    </form.Subscribe>
                   </form>
                 </section>
               </div>
@@ -400,6 +498,27 @@ function NewBallot() {
           </div>
         </section>
       </div>
+
+      {/* Add Transaction Dialog */}
+      {txDetails && (
+        <TransactionDialog
+          action="deploy"
+          id={txDetails.identifier}
+          destinationShard={txDetails.destinationShardId}
+          trait="ballot"
+          returnPath={`/collectives/${collectiveId}`}
+          onSuccess={(contractAddress) => {
+            console.log("Successfully deployed ballot:", contractAddress);
+            setSuccessMessage(
+              `Your ballot has been created successfully with address: ${contractAddress}`
+            );
+          }}
+          onError={(error) => {
+            console.error("Error with transaction:", error);
+            setError(`Transaction error: ${error.message}`);
+          }}
+        />
+      )}
     </div>
   );
 }

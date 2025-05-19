@@ -25,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TransactionDialog } from "@/components/shared/TransactionDialog";
+import { TransactionPointer } from "@/hooks/useFactoryContract";
 
 interface FormStepsProps {
   onStepChange?: (step: "define" | "members") => void;
@@ -34,9 +36,13 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
   const [currStep, setCurrStep] = useState<"define" | "members">("define");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [txDetails, setTxDetails] = useState<TransactionPointer | null>(null);
   const { account, isConnected, connect, isConnecting, disconnect } = useAuth();
-  const { mutate: deployOrganization, isPending: isDeploying } =
-    useDeployOrganization();
+  const {
+    mutate: deployOrganization,
+    isPending: isDeploying,
+    transactionPointer,
+  } = useDeployOrganization();
 
   // Replace silent connection with explicit user notification
   const ensureWalletConnection = async () => {
@@ -82,6 +88,7 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
       try {
         setError(null);
         setSuccessMessage(null);
+        setTxDetails(null); // Reset transaction details
 
         // Check wallet connection with enhanced method
         const isConnected = await ensureWalletConnection();
@@ -107,17 +114,31 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
 
         console.log("Deploying organization with info:", orgInfo);
         try {
-          deployOrganization(orgInfo);
+          deployOrganization(orgInfo, {
+            onSuccess: (data) => {
+              // Check if we have transaction pointer info from the hook
+              if (transactionPointer) {
+                setTxDetails(transactionPointer);
+              } else if (data.transactionPointer) {
+                // Fallback to data returned directly
+                setTxDetails({
+                  identifier: data.transactionPointer.identifier,
+                  destinationShardId:
+                    data.transactionPointer.destinationShardId,
+                });
+              } else {
+                // Fallback message if we don't have transaction details
+                setSuccessMessage(
+                  "Your collective has been created successfully. You'll be redirected to the home page where you can refresh to see your new collective once the blockchain transaction is confirmed."
+                );
+              }
+            },
+          });
         } catch (err) {
           console.error("Error deploying organization:", err);
           setError(err instanceof Error ? err.message : String(err));
           return;
         }
-
-        // Show success message
-        setSuccessMessage(
-          "Your collective has been created successfully. You'll be redirected to the home page where you can refresh to see your new collective once the blockchain transaction is confirmed."
-        );
       } catch (err) {
         console.error("Error deploying organization:", err);
         setError(err instanceof Error ? err.message : String(err));
@@ -337,7 +358,23 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
         <>
           <Button
             type="button"
-            onClick={() => deployOrganization(testFormData)}
+            onClick={() => {
+              deployOrganization(testFormData, {
+                onSuccess: (data) => {
+                  // Check if we have transaction pointer info from the hook
+                  if (transactionPointer) {
+                    setTxDetails(transactionPointer);
+                  } else if (data.transactionPointer) {
+                    // Fallback to data returned directly
+                    setTxDetails({
+                      identifier: data.transactionPointer.identifier,
+                      destinationShardId:
+                        data.transactionPointer.destinationShardId,
+                    });
+                  }
+                },
+              });
+            }}
             className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"
             disabled={isDeploying}
           >
@@ -653,6 +690,27 @@ export const FormSteps = ({ onStepChange }: FormStepsProps) => {
             </Button>
           )}
         </div>
+      )}
+
+      {/* Add Transaction Dialog */}
+      {txDetails && (
+        <TransactionDialog
+          action="deploy"
+          id={txDetails.identifier}
+          destinationShard={txDetails.destinationShardId}
+          trait="collective"
+          returnPath="/collectives"
+          onSuccess={(contractAddress) => {
+            console.log("Successfully deployed collective:", contractAddress);
+            setSuccessMessage(
+              `Your collective has been created successfully with address: ${contractAddress}`
+            );
+          }}
+          onError={(error) => {
+            console.error("Error with transaction:", error);
+            setError(`Transaction error: ${error.message}`);
+          }}
+        />
       )}
     </form>
   );

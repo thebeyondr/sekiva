@@ -12,6 +12,7 @@ import {
   SentTransaction,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 const FACTORY_ADDRESS = "0260ad74b28b38c48409f55b5f4a60ec6898ebfc1e";
 
@@ -73,11 +74,18 @@ export function useFactoryContract() {
   };
 }
 
+export interface TransactionPointer {
+  identifier: string;
+  destinationShardId: string;
+}
+
 export function useDeployOrganization() {
   const { account } = useAuth();
   const queryClient = useQueryClient();
+  const [transactionPointer, setTransactionPointer] =
+    useState<TransactionPointer | null>(null);
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (orgInfo: OrganizationInit) => {
       if (!account) throw new Error("Wallet not connected");
       console.log("Deploying organization with account", account.getAddress());
@@ -92,6 +100,16 @@ export function useDeployOrganization() {
           10_000_000
         );
         console.log("Organization deployed with txn", txn);
+
+        // Extract transaction pointer info
+        if (txn.transactionPointer) {
+          const pointer = {
+            identifier: txn.transactionPointer.identifier,
+            destinationShardId: txn.transactionPointer.destinationShardId,
+          };
+          setTransactionPointer(pointer);
+        }
+
         return txn;
       } catch (err) {
         throw new Error(
@@ -105,4 +123,9 @@ export function useDeployOrganization() {
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
     },
   });
+
+  return {
+    ...mutation,
+    transactionPointer,
+  };
 }

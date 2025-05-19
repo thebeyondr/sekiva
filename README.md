@@ -1,124 +1,176 @@
-# The DApp Playground for Partisia Blockchain
+# Sekiva - Privacy-Preserving Voting DApp
 
-This a development environment for the Partisia Blockchain, made for creating applications and smart
-contracts utilizing the Zk Rust and public blockchain.
+A decentralized application for conducting private, verifiable voting on Partisia Blockchain. Built with zero-knowledge proofs and multi-party computation (MPC) to ensure vote privacy while maintaining verifiability.
 
-Read the documentation to better understand
-[the fundamentals of the Partisia Blockchain](https://partisiablockchain.gitlab.io/documentation/pbc-fundamentals/introduction-to-the-fundamentals.html)
+## Overview
 
-The repo contains two simple smart contracts with simple front-ends:
-The [petition contract](https://gitlab.com/partisiablockchain/language/example-contracts/-/tree/main/petition?ref_type=heads)
-and
-the [average salary contract](https://gitlab.com/partisiablockchain/language/example-contracts/-/tree/main/zk-average-salary?ref_type=heads)
-This is provided in a codespace, where all the tooling needed for developing smart contracts and
-front-ends is installed.
+Sekiva enables organizations to conduct confidential ballot-based voting where:
 
-To develop in your browser create a codespace for a repository,
-select the `main` branch. You can read
-more [here](https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository)
+- Individual votes remain private
+- Double-voting is prevented
+- Final tallies are publicly verifiable
+- No individual vote is revealed
+- Organizations can manage their own voting processes
 
-Inside the codespace you can run predefined tasks by pressing `Ctrl+Shift+B`.
+## Architecture
 
-## It is an Automated setup
+The system consists of three main smart contracts and a modern frontend:
 
-To interact with the Partisia Blockchain you need an account with gas.
-The codespace automatically provides you with three new accounts,
-`Account-A.pk`, `Account-B.pk` and `Account-C.pk`.
+1. **Factory Contract** (`sekiva/`)
+   - Global registry for organizations
+   - Organization deployment and tracking
+   - Cross-contract event management
+   - [Detailed Documentation](sekiva/README.md)
 
-The created accounts have test_coins pre-minted which gives you 100.000.000 gas on the Testnet to
-interact, deploy and
-play around with as part of the codespace. You can continue using these outside of the codespace,
-just remember the private keys, because they are not saved when you delete the codespace.
+2. **Organization Contract** (`collective/`)
+   - Organization membership management
+   - Ballot deployment and coordination
+   - Administrative controls
+   - [Detailed Documentation](collective/README.md)
 
-Read how addresses works
-for [accounts and smart contracts](https://partisiablockchain.gitlab.io/documentation/pbc-fundamentals/dictionary.html#address).
+3. **Ballot Contract** (`ballot/`)
+   - Privacy-preserving voting
+   - Zero-knowledge vote processing
+   - Ballot lifecycle management
+   - [Detailed Documentation](ballot/README.md)
 
-## It is your own online personalized DApp playground
+4. **Frontend Application** (`sekiva-frontend/`)
+   - Modern React application
+   - TypeScript for type safety
+   - Tailwind CSS for styling
+   - [Frontend Documentation](sekiva-frontend/README.md)
 
-To use the codespace to develop your own DApps, fork the repository.
-On the fork you can modify the contract- and client code, to make your own DApp.
-To save your changes, use git to commit those changes to your forked repository.
+## Key Features
 
-Read about using codespaces in a forked
-repository [here](https://www.freecodecamp.org/news/how-to-make-your-first-open-source-contribution/).
+### Privacy & Security
 
-When forking the repository you can drastically decrease boot up time for new dev containers
-by [configuring prebuilds](https://docs.github.com/en/codespaces/prebuilding-your-codespaces/configuring-prebuilds).
+- Zero-knowledge proofs for vote privacy
+- Multi-party computation for vote tallying
+- Double-vote prevention
+- Organization-based access control
+- Event-driven architecture with process tracking
 
-If you want to do local development read
-the [dev container documentation](https://docs.github.com/en/codespaces/developing-in-a-codespace/using-github-codespaces-in-visual-studio-code).
+### Organization Management
 
-## Try, Learn and Interact with Partisia Blockchain
+- Create and manage organizations
+- Member and administrator roles
+- Social links and metadata
+- Ballot deployment and tracking
 
-We have included 2 challenge-based tutorials as part of your codespace, to help you learn and
-experiment.
+### Voting System
 
-The first one explores the [Petition example application](tutorial/petition-example-application.md),
-showing how to collect signatures for showing interests in making specific changes in the world. The
-application consists of a smart contract written in Rust and a web frontend written in TypeScript.
+- Up to 5 voting options per ballot
+- Configurable voting duration
+- Automatic vote tallying
+- Publicly verifiable results
+- Individual vote privacy
 
-The second one explores
-the [Average Salary example application](tutorial/average-salary-example-application.md), showing
-how
-to compute the average salary of a group, without revealing the salary of any individual. This
-example
-uses the superpower of Partisia
-Blockchain,
-[Zk contracts](https://partisiablockchain.gitlab.io/documentation/smart-contracts/zk-smart-contracts/zk-smart-contracts.html).
-The
-application consists of a smart contract written in Rust
-and [Zk Rust](https://partisiablockchain.gitlab.io/documentation/smart-contracts/zk-smart-contracts/zk-rust-language-zkrust.html)
-and a web frontend written in TypeScript.
+## Technical Implementation
 
-If you want to know more about the blockchain, ZK Rust or just contracts in general,
-we urge you to visit our [documentation](https://partisiablockchain.gitlab.io/documentation/) and
-participate
-in [our active community on Discord](https://partisiablockchain.gitlab.io/documentation/get-support-from-pbc-community.html).
+### Smart Contracts
+
+- Written in Rust with Partisia's ZK framework
+- Event-driven architecture for cross-contract communication
+- Process tracking for reliable state management
+- Standardized shortname scheme for operations
+
+### Frontend
+
+- React 18 with TypeScript
+- Vite for fast development
+- Tailwind CSS for styling
+- Modern, responsive UI
+- Real-time updates
+- Dark mode support
+- Mobile-first design
+
+## Development
+
+### Prerequisites
+
+- Rust toolchain
+- Partisia Blockchain development environment
+- Node.js 18+ and Bun package manager
+
+### Setup
+
+1. Clone the repository
+2. Install contract dependencies:
+
+   ```bash
+   # Install Rust dependencies
+   cargo build
+   ```
+
+3. Install frontend dependencies:
+
+   ```bash
+   cd sekiva-frontend
+   bun install
+   ```
+
+4. Start the development server:
+
+   ```bash
+   # In sekiva-frontend directory
+   bun run dev
+   ```
+
 
 ## Contract Shortname Scheme
 
-The contracts use a systematic shortname numbering scheme to organize different types of operations:
+The contracts use a systematic shortname numbering scheme:
 
 ```
 0x00-0x1F: Actions (Regular contract actions)
-- 0x00: add_administrator
-- 0x01: remove_administrator, compute_tally
-- 0x02: add_member
-- 0x03: remove_member
-- 0x04: add_ballot
-- 0x05: add_members
-- 0x06: remove_members
-- 0x07: deploy_ballot
-- 0x08: update_metadata
-- 0x09: set_vote_active (ZK action)
-- 0x11: handle_organization_event
-
 0x20-0x3F: Callbacks (Contract callbacks)
-- 0x10: deploy_organization_callback
-- 0x20: deploy_ballot_callback
-
 0x40-0x5F: Events (Contract events)
-- 0x40: BallotDeployed event
-- 0x41: MembersAdded event
-- 0x42: MembersRemoved event
-
 0x60-0x7F: ZK Operations (Zero-knowledge computations)
-- 0x60: zk_on_secret_input
-- 0x61: zk_on_variable_inputted
-- 0x62: zk_on_compute_complete
-- 0x72: zk_compute (ballot tally)
 ```
 
-This scheme helps maintain consistency across contracts and makes it easier to:
-1. Identify operation types
-2. Avoid shortname conflicts
-3. Plan for future additions
-4. Document contract interfaces
+See [Contract Shortname Scheme](docs/shortname-scheme.md) for details.
 
-When adding new operations:
-- Regular actions should use 0x00-0x1F
-- Callbacks should use 0x20-0x3F
-- Events should use 0x40-0x5F
-- ZK operations should use 0x60-0x7F
+## Security
 
-Note: This scheme was updated to ensure consistent ranges for each operation type. Previous versions had some operations in incorrect ranges.
+- Zero-knowledge proofs ensure vote privacy
+- MPC for secure vote tallying
+- Event nonces prevent replay attacks
+- Process tracking ensures reliable state management
+- Organization-based access control
+- Administrator validation
+
+## Limitations
+
+- Limited to 5 voting options per ballot
+- No time-based automatic state transitions
+- No vote delegation mechanism
+- No complex vote weighting
+
+## Future Improvements
+
+- Time-based automatic state transitions
+- Voter receipts and verification
+- Organization metadata enhancements
+- Vote delegation system
+- Advanced vote weighting
+- Mobile application
+- API for third-party integration
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Resources
+
+- [Partisia Blockchain Documentation](https://partisiablockchain.gitlab.io/documentation/)
+- [ZK Smart Contracts Guide](https://partisiablockchain.gitlab.io/documentation/smart-contracts/zk-smart-contracts/zk-smart-contracts.html)
+- [ZK Rust Language](https://partisiablockchain.gitlab.io/documentation/smart-contracts/zk-smart-contracts/zk-rust-language-zkrust.html)
+- [Partisia Community Discord](https://partisiablockchain.gitlab.io/documentation/get-support-from-pbc-community.html)

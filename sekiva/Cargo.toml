@@ -1,5 +1,5 @@
 [package]
-name = "factory"
+name = "sekiva"
 readme = "README.md"
 version.workspace = true
 description.workspace = true

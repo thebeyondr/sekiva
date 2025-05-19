@@ -1,69 +1,137 @@
 import NavBar from "@/components/shared/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ArrowLeftIcon,
-  CheckIcon,
-  Loader2,
-  PlusIcon,
-  TimerIcon,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowLeftIcon, CheckIcon, TimerIcon } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router";
-import { getBallotStatus, getTimeInfo } from "../lib/ballotUtils";
-import {
-  useBallotContract,
-  useCastVote,
-  useComputeTally,
-  useSetBallotActive,
-} from "@/hooks/useBallotContract";
-import { useQuery } from "@tanstack/react-query";
+import { getBallotStatus } from "../lib/ballotUtils";
+import { useCastVote, useComputeTally } from "@/hooks/useBallotContract";
 import { useOrganizationWithBallots } from "@/hooks/useOrganizationContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useAuth } from "@/auth/useAuth";
 import BallotCard from "./BallotCard";
 import { BallotStatusD } from "@/contracts/BallotGenerated";
+import { transformBallotStateToCardProps } from "@/lib/ballotUtils";
+import { TransactionDialog } from "@/components/shared/TransactionDialog";
+import { SentTransaction } from "@partisiablockchain/blockchain-api-transaction-client";
+
+type ErrorWithMessage = { message: string };
+function isErrorWithMessage(e: unknown): e is ErrorWithMessage {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "message" in e &&
+    typeof (e as ErrorWithMessage).message === "string"
+  );
+}
 
 const BallotPage = () => {
   const { organizationId, ballotId } = useParams();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const { getState } = useBallotContract();
-  const { mutate: setBallotActive, isPending: isSettingActive } =
-    useSetBallotActive();
   const { mutate: castVote, isPending: isVoting } = useCastVote();
   const { mutate: startTally, isPending: isStartingTally } = useComputeTally();
-  const { organization } = useOrganizationWithBallots(
+  const { organization, ballots, loading, error } = useOrganizationWithBallots(
     BlockchainAddress.fromString(organizationId as string)
   );
-  const { account } = useAuth();
+  const ballot = ballots.find((b) => b.address.asString() === ballotId);
+  const { account, canPerformAction } = useAuth();
+  const [txDialog, setTxDialog] = useState<{
+    id: string;
+    destinationShard: string;
+    open: boolean;
+  } | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isMember, setIsMember] = useState<boolean>(false);
+  const [checking, setChecking] = useState<boolean>(true);
 
-  const {
-    data: ballot,
-    isLoading: loading,
-    error,
-  } = useQuery({
-    queryKey: ["ballot", ballotId],
-    queryFn: () => getState(ballotId || ""),
-    enabled: !!ballotId,
-    staleTime: 30_000,
-    gcTime: 5 * 60_000,
-  });
+  useEffect(() => {
+    let cancelled = false;
+    async function checkPerms() {
+      if (!organizationId || !account) {
+        setIsAdmin(false);
+        setIsMember(false);
+        setChecking(false);
+        return;
+      }
+      setChecking(true);
+      try {
+        const [admin, member] = await Promise.all([
+          canPerformAction("manage_members", organizationId),
+          canPerformAction("vote", organizationId),
+        ]);
+        if (!cancelled) {
+          setIsAdmin(admin);
+          setIsMember(member);
+        }
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    }
+    checkPerms();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, account, canPerformAction]);
 
   if (!ballotId) return <div>No ballot ID</div>;
+  if (loading) return <div>Loading...</div>;
+  if (error)
+    return (
+      <div>
+        Error:{" "}
+        {isErrorWithMessage(error as unknown)
+          ? (error as ErrorWithMessage).message
+          : String(error)}
+      </div>
+    );
+  if (!ballot) return <div>Ballot not found</div>;
 
+  const ballotStatus = getBallotStatus(ballot.state.status);
   const hasVoted = account
-    ? ballot?.alreadyVoted.some(
+    ? ballot.state.alreadyVoted.some(
         (v: BlockchainAddress) => v.asString() === account.getAddress()
       )
     : false;
 
   const handleStartTally = () => {
-    startTally(ballotId || "");
+    startTally(ballotId || "", {
+      onSuccess: (txn: SentTransaction) => {
+        if (txn?.transactionPointer) {
+          setTxDialog({
+            id: txn.transactionPointer.identifier,
+            destinationShard: txn.transactionPointer.destinationShardId,
+            open: true,
+          });
+        }
+      },
+      onError: () => {
+        setTxDialog(null);
+      },
+    });
   };
 
-  if (!ballot) return null;
-
-  const ballotStatus = getBallotStatus(ballot.status);
+  const handleCastVote = () => {
+    castVote(
+      {
+        ballotAddress: ballotId!,
+        choice: selectedOption || 0,
+      },
+      {
+        onSuccess: (txn: SentTransaction) => {
+          if (txn?.transactionPointer) {
+            setTxDialog({
+              id: txn.transactionPointer.identifier,
+              destinationShard: txn.transactionPointer.destinationShardId,
+              open: true,
+            });
+          }
+        },
+        onError: () => {
+          setTxDialog(null);
+        },
+      }
+    );
+  };
 
   // Helper function to calculate vote percentage
   const calculateVotePercentage = (votes: number, total: number) => {
@@ -72,17 +140,18 @@ const BallotPage = () => {
   };
 
   // Calculate total votes
-  const totalVotes = ballot.tally?.total;
+  const totalVotes = ballot.state.tally?.total;
 
   let winningOptions: number[] = [];
 
-  if (ballot.status?.discriminant === BallotStatusD.Completed) {
+  if (ballot.state.status?.discriminant === BallotStatusD.Completed) {
     // Find all winning options by comparing vote counts
     let maxVotes = 0;
-    for (let i = 0; i < ballot.options.length; i++) {
+    for (let i = 0; i < ballot.state.options.length; i++) {
       const optionVotes =
-        (ballot.tally?.[`option${i}` as keyof typeof ballot.tally] as number) ||
-        0;
+        (ballot.state.tally?.[
+          `option${i}` as keyof typeof ballot.state.tally
+        ] as number) || 0;
       if (optionVotes > maxVotes) {
         maxVotes = optionVotes;
         winningOptions = [i];
@@ -96,9 +165,8 @@ const BallotPage = () => {
 
   return (
     <div className="min-h-screen bg-sk-yellow-light">
+      <NavBar />
       <div className="container mx-auto max-w-[1500px]">
-        <NavBar />
-
         <section className="container mx-auto max-w-4xl py-6">
           <section className="mb-4 flex items-center">
             <Link
@@ -127,23 +195,21 @@ const BallotPage = () => {
               <div className="bg-red-50 border border-red-200 p-4 rounded">
                 <p className="text-red-500 font-semibold">
                   Error:{" "}
-                  {error instanceof Error ? error.message : String(error)}
+                  {isErrorWithMessage(error as unknown)
+                    ? (error as ErrorWithMessage).message
+                    : String(error)}
                 </p>
               </div>
             </Card>
-          ) : (
+          ) : ballot ? (
             <div className="space-y-6">
               <BallotCard
-                id={ballotId}
-                title={ballot.title}
-                description={ballot.description}
-                status={ballotStatus}
-                voteCount={ballot.alreadyVoted.length}
-                timeInfo={getTimeInfo(ballot.startTime, ballot.endTime)}
-                contractAddress={ballotId}
-                organizationId={organizationId || ""}
-                tally={ballot.tally}
-                hasVoted={!!hasVoted}
+                {...transformBallotStateToCardProps(
+                  ballot.state,
+                  BlockchainAddress.fromString(ballotId),
+                  organizationId || "",
+                  hasVoted || false
+                )}
                 variant="static"
               />
 
@@ -156,103 +222,104 @@ const BallotPage = () => {
                         : "Ballot Options"}
                     </h2>
                     <div className="space-y-3">
-                      {ballot.options.map((option: string, index: number) => (
-                        <div
-                          key={index}
-                          className={`p-4 border-2 rounded-md ${
-                            ballotStatus === "active"
-                              ? "cursor-pointer transition-all"
-                              : ""
-                          } ${
-                            selectedOption === index &&
-                            ballotStatus === "active"
-                              ? "border-black bg-blue-50"
-                              : "border-gray-200"
-                          }`}
-                          onClick={() =>
-                            ballotStatus === "active" &&
-                            !hasVoted &&
-                            setSelectedOption(index)
-                          }
-                        >
-                          <div className="flex items-center">
-                            {ballotStatus === "active" && !hasVoted && (
-                              <div
-                                className={`w-5 h-5 border-2 rounded-full mr-3 flex items-center justify-center ${
-                                  selectedOption === index
-                                    ? "border-black"
-                                    : "border-gray-400"
-                                }`}
-                              >
-                                {selectedOption === index && (
-                                  <div className="w-3 h-3 bg-black rounded-full"></div>
-                                )}
-                              </div>
-                            )}
-                            <p>{option}</p>
-                          </div>
-
-                          {ballotStatus === "completed" && ballot.tally && (
-                            <div className="mt-2 flex items-center">
-                              <div className="h-2 bg-gray-200 flex-grow rounded-full overflow-hidden">
+                      {ballot.state.options.map(
+                        (option: string, index: number) => (
+                          <div
+                            key={index}
+                            className={`p-4 border-2 rounded-md ${
+                              ballotStatus === "active"
+                                ? "cursor-pointer transition-all"
+                                : ""
+                            } ${
+                              selectedOption === index &&
+                              ballotStatus === "active"
+                                ? "border-black bg-blue-50"
+                                : "border-gray-200"
+                            }`}
+                            onClick={() =>
+                              ballotStatus === "active" &&
+                              !hasVoted &&
+                              setSelectedOption(index)
+                            }
+                          >
+                            <div className="flex items-center">
+                              {ballotStatus === "active" && !hasVoted && (
                                 <div
-                                  className={`h-full ${
-                                    winningOptions.includes(index)
-                                      ? "bg-green-500"
-                                      : "bg-black"
+                                  className={`w-5 h-5 border-2 rounded-full mr-3 flex items-center justify-center ${
+                                    selectedOption === index
+                                      ? "border-black"
+                                      : "border-gray-400"
                                   }`}
-                                  style={{
-                                    width: `${calculateVotePercentage(
-                                      ballot.tally[
-                                        `option${index}` as keyof typeof ballot.tally
-                                      ] as number,
-                                      totalVotes || 0
-                                    )}%`,
-                                  }}
-                                ></div>
-                              </div>
-                              <span className="ml-2 text-sm font-medium">
-                                {
-                                  ballot.tally[
-                                    `option${index}` as keyof typeof ballot.tally
-                                  ]
-                                }{" "}
-                                {ballot.tally[
-                                  `option${index}` as keyof typeof ballot.tally
-                                ] === 1
-                                  ? "vote"
-                                  : "votes"}
-                              </span>
+                                >
+                                  {selectedOption === index && (
+                                    <div className="w-3 h-3 bg-black rounded-full"></div>
+                                  )}
+                                </div>
+                              )}
+                              <p>{option}</p>
                             </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {ballotStatus === "completed" &&
+                              ballot.state.tally && (
+                                <div className="mt-2 flex items-center">
+                                  <div className="h-2 bg-gray-200 flex-grow rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full ${
+                                        winningOptions.includes(index)
+                                          ? "bg-green-500"
+                                          : "bg-black"
+                                      }`}
+                                      style={{
+                                        width: `${calculateVotePercentage(
+                                          ballot.state.tally[
+                                            `option${index}` as keyof typeof ballot.state.tally
+                                          ] as number,
+                                          totalVotes || 0
+                                        )}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                  <span className="ml-2 text-sm font-medium">
+                                    {
+                                      ballot.state.tally[
+                                        `option${index}` as keyof typeof ballot.state.tally
+                                      ]
+                                    }{" "}
+                                    {ballot.state.tally[
+                                      `option${index}` as keyof typeof ballot.state.tally
+                                    ] === 1
+                                      ? "vote"
+                                      : "votes"}
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
 
                   {/* Vote Action */}
-                  {ballotStatus === "active" && !hasVoted && (
-                    <div className="pt-4">
-                      <Button
-                        onClick={() =>
-                          castVote({
-                            ballotAddress: ballotId,
-                            choice: selectedOption || 0,
-                          })
-                        }
-                        disabled={
-                          selectedOption === null ||
-                          isVoting ||
-                          hasVoted ||
-                          !account
-                        }
-                        className="w-full sm:w-auto"
-                      >
-                        <CheckIcon className="w-4 h-4 mr-2" />
-                        {isVoting ? "Casting vote..." : "Cast Vote"}
-                      </Button>
-                    </div>
-                  )}
+                  {!checking &&
+                    isMember &&
+                    ballotStatus === "active" &&
+                    !hasVoted && (
+                      <div className="pt-4">
+                        <Button
+                          onClick={handleCastVote}
+                          disabled={
+                            selectedOption === null ||
+                            isVoting ||
+                            hasVoted ||
+                            !account
+                          }
+                          className="w-full sm:w-auto"
+                        >
+                          <CheckIcon className="w-4 h-4 mr-2" />
+                          {isVoting ? "Casting vote..." : "Cast Vote"}
+                        </Button>
+                      </div>
+                    )}
 
                   {hasVoted && ballotStatus === "active" && (
                     <div className="bg-green-50 p-6 rounded-md border border-green-200">
@@ -262,11 +329,11 @@ const BallotPage = () => {
                     </div>
                   )}
 
-                  {ballotStatus === "pending" && (
+                  {ballotStatus === "tallying" && (
                     <div className="bg-amber-50 p-6 rounded-md">
                       <p className="text-lg">
-                        This ballot is not yet active. Check back later to cast
-                        your vote.
+                        This ballot is currently being tallied. Check back later
+                        to see the results.
                       </p>
                     </div>
                   )}
@@ -274,53 +341,53 @@ const BallotPage = () => {
               </Card>
 
               {/* Admin Actions */}
-              {ballot.administrator && ballotStatus !== "completed" && (
-                <Card className="border-2 border-black">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-semibold">
-                      Admin Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {ballotStatus === "active" && (
-                      <Button
-                        onClick={handleStartTally}
-                        variant="outline"
-                        className="border-2 border-black hover:bg-gray-50"
-                        disabled={isStartingTally}
-                      >
-                        <TimerIcon className="w-4 h-4 mr-2" />
-                        {isStartingTally ? "Starting tally..." : "Start tally"}
-                      </Button>
-                    )}
-                    {ballotStatus === "pending" && (
-                      <Button
-                        variant="outline"
-                        className="border-2 border-black hover:bg-gray-50"
-                        onClick={() => setBallotActive(ballotId)}
-                        disabled={isSettingActive}
-                      >
-                        {!isSettingActive && (
-                          <>
-                            <PlusIcon className="w-4 h-4 mr-2" />
-                            Activate Ballot
-                          </>
-                        )}
-                        {isSettingActive && (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Activating...
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    <p className="text-sm text-gray-500 mt-2">
-                      Note: Starting the tally computation will close the voting
-                      period.
-                    </p>
-                  </CardContent>
-                </Card>
+              {!checking &&
+                isAdmin &&
+                ballot.state.administrator &&
+                ballotStatus !== "completed" && (
+                  <Card className="border-2 border-black">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold">
+                        Admin Actions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {ballotStatus === "active" && (
+                        <Button
+                          onClick={handleStartTally}
+                          variant="outline"
+                          className="border-2 border-black hover:bg-gray-50"
+                          disabled={isStartingTally}
+                        >
+                          <TimerIcon className="w-4 h-4 mr-2" />
+                          {isStartingTally
+                            ? "Starting tally..."
+                            : "Start tally"}
+                        </Button>
+                      )}
+                      <p className="text-sm text-gray-500 mt-2">
+                        Note: Starting the tally computation will close the
+                        voting period.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+              {/* Transaction Dialog for admin actions */}
+              {txDialog?.open && (
+                <TransactionDialog
+                  action="action"
+                  id={txDialog.id}
+                  destinationShard={txDialog.destinationShard}
+                  trait="ballot"
+                  onSuccess={() => setTxDialog(null)}
+                  onError={() => setTxDialog(null)}
+                />
               )}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Ballot not found</p>
             </div>
           )}
         </section>

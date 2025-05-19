@@ -82,7 +82,9 @@ export function useTransactionStatus(
 
       setStatus({
         isLoading: false,
-        isSuccess: data.executionStatus?.success || false,
+        isSuccess:
+          (data.executionStatus?.success && data.executionStatus?.finalized) ||
+          false,
         isError: data.executionStatus?.success === false,
         isFinalized: data.executionStatus?.finalized || false,
         error: null,
@@ -117,7 +119,10 @@ export function useTransactionStatus(
 
           setStatus({
             isLoading: false,
-            isSuccess: data.executionStatus?.success || false,
+            isSuccess:
+              (data.executionStatus?.success &&
+                data.executionStatus?.finalized) ||
+              false,
             isError: data.executionStatus?.success === false,
             isFinalized: data.executionStatus?.finalized || false,
             error: null,
@@ -164,10 +169,12 @@ export function useTransactionStatus(
         if (
           isMounted &&
           data &&
-          (data.executionStatus?.finalized || status.isError)
+          (data.executionStatus?.finalized ||
+            data.executionStatus?.success ||
+            status.isError)
         ) {
           console.log(
-            `[Transaction] Polling stopped - status finalized or error`,
+            `[Transaction] Polling stopped - transaction successful, finalized or error`,
             data
           );
           clearInterval(intervalId);

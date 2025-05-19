@@ -127,19 +127,19 @@ const MyCollectives = () => {
             <h1 className="text-3xl font-bold tracking-tight">
               My Collectives
             </h1>
-            {isConnected && (
-              <div className="flex gap-2">
+            <div className="flex gap-2">
+              {isConnected && (
                 <Button onClick={refresh} variant="outline" disabled={loading}>
                   Refresh
                 </Button>
-                <Link to="/collectives/new">
-                  <Button className="flex items-center gap-2">
-                    <PlusIcon className="w-4 h-4" />
-                    New
-                  </Button>
-                </Link>
-              </div>
-            )}
+              )}
+              <Link to="/collectives/new">
+                <Button className="flex items-center gap-2">
+                  <PlusIcon className="w-4 h-4" />
+                  New
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {!isConnected ? (

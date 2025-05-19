@@ -45,7 +45,11 @@ const fetchTransactionFromShard = async (
   return data as TransactionData;
 };
 
-export function useTransactionStatus(id: string, initialShard: string) {
+export function useTransactionStatus(
+  id: string,
+  initialShard: string,
+  trait?: "ballot" | "collective" | "other"
+) {
   const [status, setStatus] = useState<TransactionStatus>({
     isLoading: true,
     isSuccess: false,
@@ -59,6 +63,12 @@ export function useTransactionStatus(id: string, initialShard: string) {
   const fetchStatus = useCallback(async () => {
     if (!id) return;
 
+    // Determine contract address prefix
+    let prefix = "02";
+    if (trait === "ballot") prefix = "03";
+    else if (trait === "collective") prefix = "02";
+    // fallback to 02 for other
+
     // Try the initial shard first
     try {
       const data = await fetchTransactionFromShard(id, initialShard);
@@ -66,8 +76,8 @@ export function useTransactionStatus(id: string, initialShard: string) {
       // Calculate contract address if this is a deployment
       let contractAddress = null;
       if (data.executionStatus?.success) {
-        // Extract last 40 chars of transaction ID and prepend '02'
-        contractAddress = "02" + id.substring(id.length - 40);
+        // Extract last 40 chars of transaction ID and prepend prefix
+        contractAddress = prefix + id.substring(id.length - 40);
       }
 
       setStatus({
@@ -101,8 +111,8 @@ export function useTransactionStatus(id: string, initialShard: string) {
           // Calculate contract address if this is a deployment
           let contractAddress = null;
           if (data.executionStatus?.success) {
-            // Extract last 40 chars of transaction ID and prepend '02'
-            contractAddress = "02" + id.substring(id.length - 40);
+            // Extract last 40 chars of transaction ID and prepend prefix
+            contractAddress = prefix + id.substring(id.length - 40);
           }
 
           setStatus({
@@ -131,7 +141,7 @@ export function useTransactionStatus(id: string, initialShard: string) {
           lastError instanceof Error ? lastError : new Error(String(lastError)),
       }));
     }
-  }, [id, initialShard]);
+  }, [id, initialShard, trait]);
 
   // Poll for transaction status with increasing frequency
   useEffect(() => {

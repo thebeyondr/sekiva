@@ -31,7 +31,7 @@ export function TransactionDialog({
 }: TransactionDialogProps) {
   const [open, setOpen] = useState(true);
   const navigate = useNavigate();
-  const status = useTransactionStatus(id, destinationShard);
+  const status = useTransactionStatus(id, destinationShard, trait);
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Handle success
@@ -91,7 +91,7 @@ export function TransactionDialog({
 
   const transactionExplorerUrl = `https://browser.testnet.partisiablockchain.com/transactions/${id}`;
   const contractExplorerUrl = status.contractAddress
-    ? `https://browser.testnet.partisiablockchain.com/contracts/${status.contractAddress}`
+    ? `https://browser.testnet.partisiablockchain.com/contracts/${status.contractAddress}?tab=state`
     : "";
 
   // Custom styling based on status

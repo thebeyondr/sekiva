@@ -1,9 +1,9 @@
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { BallotState, BallotStatusD, Tally } from "@/contracts/BallotGenerated";
+import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { BN } from "bn.js";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceStrict, formatDistanceToNow } from "date-fns";
 
-export type BallotStatus = "active" | "completed" | "pending";
+export type BallotStatus = "active" | "completed" | "tallying";
 
 export interface BallotCardProps {
   id: string;
@@ -24,14 +24,14 @@ export interface BallotCardProps {
 export const getBallotStatus = (
   status: BallotState["status"]
 ): BallotStatus => {
-  if (!status) return "pending";
+  if (!status) return "active";
   switch (status.discriminant) {
-    case BallotStatusD.Active:
-      return "active";
     case BallotStatusD.Completed:
       return "completed";
+    case BallotStatusD.Tallying:
+      return "tallying";
     default:
-      return "pending";
+      return "active";
   }
 };
 
@@ -40,18 +40,19 @@ export const getTimeInfo = (
   endTime: InstanceType<typeof BN>
 ): string => {
   if (startTime.isZero() && endTime.isZero()) {
-    return "Not started";
+    return "no time info";
   }
+
   const now = new Date();
   const start = new Date(Number(startTime));
   const end = new Date(Number(endTime));
 
   if (now < start) {
-    return `Starts ${formatDistanceToNow(start)}`;
+    return `Starts in ${formatDistanceStrict(now, start)}`;
   } else if (now > end) {
-    return `Ended ${formatDistanceToNow(end)}`;
+    return `Ended ${formatDistanceToNow(end)} ago`;
   } else {
-    return `Ends ${formatDistanceToNow(end)}`;
+    return `Ends in ${formatDistanceStrict(now, end)}`;
   }
 };
 

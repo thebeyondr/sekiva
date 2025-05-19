@@ -11,6 +11,7 @@ import { AuthProvider } from "@/auth/AuthProvider.tsx";
 import NewBallot from "@/ballot/NewBallot.tsx";
 import BallotPage from "@/ballot/BallotPage.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import TransactionTest from "@/components/shared/TransactionTest.tsx";
 
 setupPolyfills();
 
@@ -32,6 +33,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path=":ballotId" element={<BallotPage />} />
               </Route>
             </Route>
+            <Route path="/test-transaction" element={<TransactionTest />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

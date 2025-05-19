@@ -1,137 +1,194 @@
 import { useState } from "react";
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
-import { ClipboardCopy, Check, Wallet } from "lucide-react";
+import { ClipboardCopy, Check, Wallet, ChevronUp } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 const truncateAddress = (address: string) => {
   return address.slice(0, 6) + "..." + address.slice(-4);
 };
 
+const NotificationToast = ({
+  type,
+  message,
+}: {
+  type: "success" | "error";
+  message: string;
+}) => (
+  <div
+    className={cn(
+      "absolute top-full left-1/2 -translate-x-1/2 translate-y-2 p-2 text-sm",
+      "bg-white border-2 border-black shadow-[-2px_2px_0px_0px_rgba(0,0,0,1)]",
+      type === "error" ? "bg-sk-red-light" : "bg-stone-200"
+    )}
+  >
+    <div className="relative">
+      {message}
+      <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+10px)] border-8 border-transparent border-b-black" />
+    </div>
+  </div>
+);
+
 const ConnectButton = () => {
   const {
     walletAddress,
     isConnecting,
-    isDisconnecting,
     isConnected,
-    isDisconnected,
+    connectError,
     connect,
     disconnect,
-    isAuthenticated,
   } = useAuth();
 
   const [copied, setCopied] = useState(false);
   const [notification, setNotification] = useState<{
-    show: boolean;
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  // Simple notification helper
   const showNotification = (
     message: string,
     type: "success" | "error" = "success"
   ) => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification(null), 3000);
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 2000);
   };
 
   const handleConnect = async () => {
     try {
       await connect();
-      showNotification("Successfully connected to your wallet");
-    } catch (error) {
-      showNotification(
-        error instanceof Error
-          ? error.message
-          : "Could not connect to your wallet",
-        "error"
-      );
+      showNotification("Wallet connected");
+    } catch {
+      showNotification(connectError?.message || "Connection failed", "error");
     }
   };
 
-  const handleDisconnect = () => {
-    disconnect();
-    showNotification("You have been signed out");
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+      showNotification("Wallet disconnected");
+    } catch {
+      showNotification("Disconnect failed", "error");
+    }
   };
 
   const copyToClipboard = () => {
-    if (walletAddress) {
-      navigator.clipboard.writeText(walletAddress);
-      setCopied(true);
-      showNotification("Wallet address copied to clipboard");
-
-      // Reset copied state after 2 seconds
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (!walletAddress) return;
+    navigator.clipboard.writeText(walletAddress);
+    setCopied(true);
+    showNotification("Address copied");
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const label = isConnecting
-    ? "connecting..."
-    : isDisconnecting
-      ? "disconnecting..."
-      : isConnected
-        ? truncateAddress(walletAddress ?? "")
-        : isDisconnected
-          ? "sign in"
-          : "loading...";
-
-  const NotLoggedIn = (
-    <Button
-      onClick={handleConnect}
-      disabled={isConnecting}
-      className="flex gap-2 items-center"
-    >
-      <Wallet size={16} />
-      {label}
-    </Button>
-  );
-
-  const LoggedIn = (
-    <div className="flex items-center gap-1">
-      <p className="text-sm hidden md:block">Logged in as</p>
-      <div className="relative flex items-center">
-        <p
-          title={walletAddress ?? ""}
-          className="text-sm uppercase px-1 bg-stone-50 rounded-sm font-medium border-[1.5px] border-stone-700 cursor-pointer flex items-center gap-1"
-          onClick={copyToClipboard}
+  if (!isConnected) {
+    return (
+      <div className="relative inline-block">
+        {notification && (
+          <NotificationToast
+            type={notification.type}
+            message={notification.message}
+          />
+        )}
+        <Button
+          onClick={handleConnect}
+          disabled={isConnecting}
+          className={cn(
+            "flex gap-2 items-center bg-black text-white",
+            "border-2 border-black rounded-none",
+            "shadow-[-2px_2px_0px_0px_rgba(0,0,0,1)]",
+            "hover:translate-x-[-2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+          )}
         >
-          {walletAddress ? truncateAddress(walletAddress) : ""}
-          <button
-            className="ml-1 opacity-70 hover:opacity-100"
-            onClick={copyToClipboard}
-          >
-            {copied ? <Check size={12} /> : <ClipboardCopy size={12} />}
-          </button>
-        </p>
+          <Wallet size={16} />
+          {isConnecting ? "Connecting..." : "Connect Wallet"}
+        </Button>
       </div>
-      <p className="text-sm">|</p>
-      <Button
-        variant="link"
-        size="icon"
-        className="pl-2 font-bold"
-        onClick={handleDisconnect}
-        disabled={isDisconnecting}
-      >
-        logout
-      </Button>
-    </div>
-  );
+    );
+  }
+
+  if (!walletAddress) return null;
 
   return (
-    <>
-      {notification && notification.show && (
-        <div
-          className={`fixed top-4 right-4 p-2 rounded shadow-md text-sm max-w-xs z-50 ${
-            notification.type === "error"
-              ? "bg-red-100 text-red-800"
-              : "bg-green-100 text-green-800"
-          }`}
-        >
-          {notification.message}
-        </div>
+    <div className="relative inline-block">
+      {notification && (
+        <NotificationToast
+          type={notification.type}
+          message={notification.message}
+        />
       )}
-      {isAuthenticated ? LoggedIn : NotLoggedIn}
-    </>
+      <div className="flex items-center gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "text-sm uppercase px-2 py-1 bg-white",
+                      "rounded-none font-medium border-2 border-black",
+                      "shadow-[-2px_2px_0px_0px_rgba(0,0,0,1)]",
+                      "hover:translate-x-[-2px] hover:translate-y-[2px] hover:shadow-none",
+                      "transition-all flex items-center gap-2"
+                    )}
+                  >
+                    <span>{truncateAddress(walletAddress)}</span>
+                    {copied ? <Check size={14} /> : <ClipboardCopy size={14} />}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className={cn(
+                    "rounded-none border-2 border-black",
+                    "shadow-[-2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  )}
+                >
+                  <DropdownMenuItem
+                    onClick={copyToClipboard}
+                    className="rounded-none focus:bg-sk-yellow-light"
+                  >
+                    <ClipboardCopy size={14} className="mr-2" />
+                    Copy Address
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TooltipTrigger>
+            <TooltipContent
+              className={cn(
+                "rounded-none border-2 border-black",
+                "shadow-[-2px_2px_0px_0px_rgba(0,0,0,1)]"
+              )}
+            >
+              {walletAddress}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDisconnect}
+          className={cn(
+            "font-medium bg-white",
+            "border-2 border-black rounded-none",
+            "shadow-[-2px_2px_0px_0px_rgba(0,0,0,1)]",
+            "hover:translate-x-[-2px] hover:translate-y-[2px] hover:shadow-none"
+          )}
+        >
+          Disconnect
+        </Button>
+      </div>
+    </div>
   );
 };
 

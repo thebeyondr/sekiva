@@ -1,21 +1,127 @@
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import { ExternalLinkIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/auth/useAuth";
+import { useOrganizationContract } from "@/hooks/useOrganizationContract";
+import { TransactionDialog } from "@/components/shared/TransactionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface MembersTabProps {
   members: BlockchainAddress[];
   owner: BlockchainAddress;
   administrators: BlockchainAddress[];
+  organizationId?: string;
 }
 
-const MembersTab = ({ members, owner, administrators }: MembersTabProps) => {
-  const isAdmin = (address: BlockchainAddress) => {
-    return administrators.some(
-      (admin) => admin.asString() === address.asString()
-    );
-  };
+const MembersTab = ({
+  members,
+  owner,
+  administrators,
+  organizationId,
+}: MembersTabProps) => {
+  const { account, canPerformAction } = useAuth();
+  const orgId = organizationId;
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState<string | null>(null);
+  const [showPromoteDialog, setShowPromoteDialog] = useState<string | null>(
+    null
+  );
+  const [showDemoteDialog, setShowDemoteDialog] = useState<string | null>(null);
+  const [txnDialog, setTxnDialog] = useState<null | {
+    id: string;
+    destinationShard: string;
+  }>(null);
+  const [addAddress, setAddAddress] = useState("");
+  const [canManageMembers, setCanManageMembers] = useState(false);
+  const [canManageAdmins, setCanManageAdmins] = useState(false);
 
-  const isOwner = (address: BlockchainAddress) => {
-    return owner.asString() === address.asString();
+  const { addMember, removeMember, promoteMember, demoteMember } =
+    useOrganizationContract();
+
+  // Check permissions for member management
+  useEffect(() => {
+    let cancelled = false;
+    async function checkPerms() {
+      if (!orgId || !account) {
+        setCanManageMembers(false);
+        setCanManageAdmins(false);
+        return;
+      }
+
+      try {
+        const [canManage, canManageAdmin] = await Promise.all([
+          canPerformAction("manage_members", orgId),
+          canPerformAction("manage_admins", orgId),
+        ]);
+
+        if (!cancelled) {
+          setCanManageMembers(canManage);
+          setCanManageAdmins(canManageAdmin);
+        }
+      } catch (error) {
+        console.error("[Members] Permission check failed:", error);
+      }
+    }
+
+    checkPerms();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, account, canPerformAction]);
+
+  // Action handlers
+  const handleAddMember = async () => {
+    if (!orgId || !addAddress) return;
+    const res = await addMember(orgId, addAddress);
+    if (res?.transactionPointer) {
+      setTxnDialog({
+        id: res.transactionPointer.identifier,
+        destinationShard: res.transactionPointer.destinationShardId,
+      });
+    }
+    setShowAddDialog(false);
+    setAddAddress("");
+  };
+  const handleRemoveMember = async (address: string) => {
+    if (!orgId) return;
+    const res = await removeMember(orgId, address);
+    if (res?.transactionPointer) {
+      setTxnDialog({
+        id: res.transactionPointer.identifier,
+        destinationShard: res.transactionPointer.destinationShardId,
+      });
+    }
+    setShowRemoveDialog(null);
+  };
+  const handlePromoteMember = async (address: string) => {
+    if (!orgId) return;
+    const res = await promoteMember(orgId, address);
+    if (res?.transactionPointer) {
+      setTxnDialog({
+        id: res.transactionPointer.identifier,
+        destinationShard: res.transactionPointer.destinationShardId,
+      });
+    }
+    setShowPromoteDialog(null);
+  };
+  const handleDemoteMember = async (address: string) => {
+    if (!orgId) return;
+    const res = await demoteMember(orgId, address);
+    if (res?.transactionPointer) {
+      setTxnDialog({
+        id: res.transactionPointer.identifier,
+        destinationShard: res.transactionPointer.destinationShardId,
+      });
+    }
+    setShowDemoteDialog(null);
   };
 
   return (
@@ -23,7 +129,11 @@ const MembersTab = ({ members, owner, administrators }: MembersTabProps) => {
       <div className="px-2 py-1 bg-gray-100 rounded-md text-sm mb-6 w-fit">
         {members.length} member{members.length === 1 ? "" : "s"}
       </div>
-
+      {canManageMembers && (
+        <Button onClick={() => setShowAddDialog(true)} className="mb-4">
+          Add Member
+        </Button>
+      )}
       {members.length > 0 ? (
         <div className="space-y-3">
           {members.map((member, index) => (
@@ -32,28 +142,68 @@ const MembersTab = ({ members, owner, administrators }: MembersTabProps) => {
               className="bg-white border border-gray-200 hover:border-gray-300 rounded-md p-3 flex items-center justify-between transition-colors"
             >
               <div className="flex items-center gap-2">
-                {isOwner(member) && (
+                {owner.asString() === member.asString() && (
                   <span className="text-lg text-amber-600 -mt-1" title="Owner">
                     👑
                   </span>
                 )}
-                {isAdmin(member) && !isOwner(member) && (
-                  <span className="text-lg text-blue-600" title="Administrator">
-                    ⚙️
-                  </span>
-                )}
+                {administrators.some(
+                  (a) => a.asString() === member.asString()
+                ) &&
+                  owner.asString() !== member.asString() && (
+                    <span
+                      className="text-lg text-blue-600"
+                      title="Administrator"
+                    >
+                      ⚙️
+                    </span>
+                  )}
                 <span className="font-mono text-sm truncate max-w-[260px] sm:max-w-md">
                   {member.asString()}
                 </span>
               </div>
-              <a
-                href={`https://browser.testnet.partisiablockchain.com/accounts/${member.asString()}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 p-1 hover:bg-blue-50 rounded"
-              >
-                <ExternalLinkIcon className="w-4 h-4" />
-              </a>
+              {account && member.asString() !== account.getAddress() && (
+                <div className="flex gap-2">
+                  {/* Only show promote button if user can manage admins and member isn't already an admin */}
+                  {canManageAdmins &&
+                    !administrators.some(
+                      (a) => a.asString() === member.asString()
+                    ) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowPromoteDialog(member.asString())}
+                      >
+                        Promote
+                      </Button>
+                    )}
+                  {/* Only show demote button if user can manage admins and member is an admin but not owner */}
+                  {canManageAdmins &&
+                    administrators.some(
+                      (a) => a.asString() === member.asString()
+                    ) &&
+                    owner.asString() !== member.asString() && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowDemoteDialog(member.asString())}
+                      >
+                        Demote
+                      </Button>
+                    )}
+                  {/* Only show remove button if user can manage members and member isn't owner */}
+                  {canManageMembers &&
+                    owner.asString() !== member.asString() && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setShowRemoveDialog(member.asString())}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -62,7 +212,100 @@ const MembersTab = ({ members, owner, administrators }: MembersTabProps) => {
           <p className="text-gray-500">This organization has no members yet.</p>
         </div>
       )}
-
+      {/* Add Member Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog} modal>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Member</DialogTitle>
+          </DialogHeader>
+          <Input
+            type="text"
+            value={addAddress}
+            onChange={(e) => setAddAddress(e.target.value)}
+            placeholder="Enter member address"
+            className="shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90"
+          />
+          <DialogFooter>
+            <Button onClick={handleAddMember} disabled={!addAddress}>
+              Add
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Remove Member Dialog */}
+      <Dialog
+        open={!!showRemoveDialog}
+        onOpenChange={() => setShowRemoveDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Member</DialogTitle>
+          </DialogHeader>
+          <p>Are you sure you want to remove this member?</p>
+          <DialogFooter>
+            <Button onClick={() => handleRemoveMember(showRemoveDialog!)}>
+              Remove
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Promote Member Dialog */}
+      <Dialog
+        open={!!showPromoteDialog}
+        onOpenChange={() => setShowPromoteDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Promote to Admin</DialogTitle>
+          </DialogHeader>
+          <p>Promote this member to administrator?</p>
+          <DialogFooter>
+            <Button onClick={() => handlePromoteMember(showPromoteDialog!)}>
+              Promote
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Demote Member Dialog */}
+      <Dialog
+        open={!!showDemoteDialog}
+        onOpenChange={() => setShowDemoteDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Demote Admin</DialogTitle>
+          </DialogHeader>
+          <p>Demote this administrator to regular member?</p>
+          <DialogFooter>
+            <Button onClick={() => handleDemoteMember(showDemoteDialog!)}>
+              Demote
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Transaction Dialog */}
+      {txnDialog && (
+        <TransactionDialog
+          action="action"
+          id={txnDialog.id}
+          destinationShard={txnDialog.destinationShard}
+          trait="collective"
+          onSuccess={() => setTxnDialog(null)}
+          onError={() => setTxnDialog(null)}
+        />
+      )}
       <div className="mt-8 pt-6 border-t border-gray-200">
         <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">
           Member Roles

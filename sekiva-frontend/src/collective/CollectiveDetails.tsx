@@ -114,12 +114,14 @@ const OrganizationDetail = () => {
                   >
                     Ballots
                   </TabsTrigger>
+
                   <TabsTrigger
                     value="members"
                     className="cursor-pointer rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-stone-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-stone-100"
                   >
                     Members
                   </TabsTrigger>
+
                   <TabsTrigger
                     value="about"
                     className="cursor-pointer rounded-none h-full data-[state=active]:border-b-4 data-[state=active]:border-black data-[state=active]:text-black data-[state=active]:shadow-none data-[state=active]:bg-white text-stone-600 text-lg xl:text-xl font-medium px-6 py-3 text-center hover:bg-stone-100"
@@ -141,6 +143,7 @@ const OrganizationDetail = () => {
                       members={organization.members}
                       owner={organization.owner}
                       administrators={organization.administrators}
+                      organizationId={organizationId || ""}
                     />
                   </TabsContent>
                   <TabsContent value="about" className="m-0">

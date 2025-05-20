@@ -62,15 +62,6 @@ enum BallotStatus {
 }
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
-struct BallotInit {
-    options: Vec<String>,
-    title: String,
-    description: String,
-    administrator: Address,
-    duration_seconds: u64,
-}
-
-#[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 #[repr(u8)]
 enum OrganizationEvent {
     #[discriminant(0)]
@@ -588,7 +579,11 @@ pub fn add_ballot(
 ///
 /// * `ctx` - the contract context containing information about the sender and the blockchain.
 /// * `state` - the current state of the Organization.
-/// * `ballot_init` - the initial data for the ballot.
+/// * `options` - the options of the ballot.
+/// * `title` - the title of the ballot.
+/// * `description` - the description of the ballot.
+/// * `administrator` - the administrator of the ballot.
+/// * `duration_seconds` - the duration of the ballot.
 ///
 /// # Returns
 ///
@@ -598,13 +593,17 @@ pub fn add_ballot(
 fn deploy_ballot(
     ctx: ContractContext,
     state: OrganizationState,
-    ballot_init: BallotInit,
+    options: Vec<String>,
+    title: String,
+    description: String,
+    administrator: Address,
+    duration_seconds: u64,
 ) -> (OrganizationState, Vec<EventGroup>) {
     let ballot_contract_address = Address {
         address_type: AddressType::ZkContract,
         identifier: ctx.original_transaction.bytes[12..32].try_into().unwrap(),
     };
-    let ballot_title = ballot_init.title.clone();
+    let ballot_title = title.clone();
 
     // Generate a process ID for this ballot deployment
     let process_id = generate_process_id(&ctx);
@@ -619,7 +618,7 @@ fn deploy_ballot(
     let mut event_group = EventGroup::builder();
 
     assert!(
-        state.administrators.contains(&ballot_init.administrator),
+        state.administrators.contains(&administrator),
         "Administrator must be one of the organization administrators."
     );
 
@@ -632,13 +631,13 @@ fn deploy_ballot(
         .call(DEPLOY_ZK_CONTRACT_ADDRESS, DEPLOY_ZK_SHORTNAME)
         .argument(state.ballot_contract_zkwa.clone())
         .argument(create_ballot_init_data(
-            ballot_init.options,
-            ballot_init.title,
-            ballot_init.description,
+            options,
+            title,
+            description,
             ctx.contract_address,
-            ballot_init.administrator,
+            administrator,
             eligible_voters,
-            ballot_init.duration_seconds,
+            duration_seconds,
         ))
         .argument(state.ballot_contract_abi.clone())
         .argument(20000000i64) // requiredStakes

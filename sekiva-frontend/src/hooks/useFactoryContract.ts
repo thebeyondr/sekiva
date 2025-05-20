@@ -2,7 +2,6 @@ import { useAuth } from "@/auth/useAuth";
 import { CLIENT, TESTNET_URL } from "@/partisia-config";
 import {
   deployOrganization,
-  OrganizationInit,
   deserializeState,
   SekivaFactoryState,
 } from "@/contracts/SekivaFactoryGenerated";
@@ -16,6 +15,17 @@ import { useState, useMemo } from "react";
 
 // 0260ad74b28b38c48409f55b5f4a60ec6898ebfc1e
 const FACTORY_ADDRESS = "02e2001a2aa0ad2caf29687d5b8e6fb7dfb1d5f1ff";
+
+export interface OrganizationInit {
+  name: string;
+  description: string;
+  profileImage: string;
+  bannerImage: string;
+  xUrl: string;
+  discordUrl: string;
+  websiteUrl: string;
+  administrator: BlockchainAddress;
+}
 
 function getByAddress<K extends { asString?: () => string } | string, V>(
   map: Map<K, V>,
@@ -102,7 +112,16 @@ export function useDeployOrganization() {
           TESTNET_URL,
           account
         );
-        const rpc = deployOrganization(orgInfo);
+        const rpc = deployOrganization(
+          orgInfo.name,
+          orgInfo.description,
+          orgInfo.profileImage,
+          orgInfo.bannerImage,
+          orgInfo.xUrl,
+          orgInfo.discordUrl,
+          orgInfo.websiteUrl,
+          orgInfo.administrator
+        );
         const txn: SentTransaction = await txClient.signAndSend(
           { address: FACTORY_ADDRESS, rpc },
           10_000_000

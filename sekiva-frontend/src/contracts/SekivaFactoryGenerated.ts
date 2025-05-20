@@ -156,26 +156,6 @@ export class SekivaFactoryGenerated {
   ): OrganizationProcessStateDeleted {
     return { discriminant: OrganizationProcessStateD.Deleted };
   }
-  public deserializeOrganizationInit(_input: AbiInput): OrganizationInit {
-    const name: string = _input.readString();
-    const description: string = _input.readString();
-    const profileImage: string = _input.readString();
-    const bannerImage: string = _input.readString();
-    const xUrl: string = _input.readString();
-    const discordUrl: string = _input.readString();
-    const websiteUrl: string = _input.readString();
-    const administrator: BlockchainAddress = _input.readAddress();
-    return {
-      name,
-      description,
-      profileImage,
-      bannerImage,
-      xUrl,
-      discordUrl,
-      websiteUrl,
-      administrator,
-    };
-  }
   public deserializeOrganizationEvent(_input: AbiInput): OrganizationEvent {
     const discriminant = _input.readU8();
     if (discriminant === 0) {
@@ -294,8 +274,25 @@ export class SekivaFactoryGenerated {
   public deserializeDeployOrganizationAction(
     _input: AbiInput
   ): DeployOrganizationAction {
-    const orgInit: OrganizationInit = this.deserializeOrganizationInit(_input);
-    return { discriminant: "deploy_organization", orgInit };
+    const name: string = _input.readString();
+    const description: string = _input.readString();
+    const profileImage: string = _input.readString();
+    const bannerImage: string = _input.readString();
+    const xUrl: string = _input.readString();
+    const discordUrl: string = _input.readString();
+    const websiteUrl: string = _input.readString();
+    const administrator: BlockchainAddress = _input.readAddress();
+    return {
+      discriminant: "deploy_organization",
+      name,
+      description,
+      profileImage,
+      bannerImage,
+      xUrl,
+      discordUrl,
+      websiteUrl,
+      administrator,
+    };
   }
 
   public deserializeHandleOrganizationEventAction(
@@ -389,40 +386,6 @@ export interface OrganizationProcessStateActive {
 
 export interface OrganizationProcessStateDeleted {
   discriminant: OrganizationProcessStateD.Deleted;
-}
-
-export interface OrganizationInit {
-  name: string;
-  description: string;
-  profileImage: string;
-  bannerImage: string;
-  xUrl: string;
-  discordUrl: string;
-  websiteUrl: string;
-  administrator: BlockchainAddress;
-}
-function serializeOrganizationInit(
-  _out: AbiOutput,
-  _value: OrganizationInit
-): void {
-  const {
-    name,
-    description,
-    profileImage,
-    bannerImage,
-    xUrl,
-    discordUrl,
-    websiteUrl,
-    administrator,
-  } = _value;
-  _out.writeString(name);
-  _out.writeString(description);
-  _out.writeString(profileImage);
-  _out.writeString(bannerImage);
-  _out.writeString(xUrl);
-  _out.writeString(discordUrl);
-  _out.writeString(websiteUrl);
-  _out.writeAddress(administrator);
 }
 
 export enum OrganizationEventD {
@@ -581,10 +544,26 @@ export function initialize(
   });
 }
 
-export function deployOrganization(orgInit: OrganizationInit): Buffer {
+export function deployOrganization(
+  name: string,
+  description: string,
+  profileImage: string,
+  bannerImage: string,
+  xUrl: string,
+  discordUrl: string,
+  websiteUrl: string,
+  administrator: BlockchainAddress
+): Buffer {
   return AbiByteOutput.serializeBigEndian((_out) => {
     _out.writeBytes(Buffer.from("01", "hex"));
-    serializeOrganizationInit(_out, orgInit);
+    _out.writeString(name);
+    _out.writeString(description);
+    _out.writeString(profileImage);
+    _out.writeString(bannerImage);
+    _out.writeString(xUrl);
+    _out.writeString(discordUrl);
+    _out.writeString(websiteUrl);
+    _out.writeAddress(administrator);
   });
 }
 
@@ -638,7 +617,14 @@ export type Action =
 
 export interface DeployOrganizationAction {
   discriminant: "deploy_organization";
-  orgInit: OrganizationInit;
+  name: string;
+  description: string;
+  profileImage: string;
+  bannerImage: string;
+  xUrl: string;
+  discordUrl: string;
+  websiteUrl: string;
+  administrator: BlockchainAddress;
 }
 export interface HandleOrganizationEventAction {
   discriminant: "handle_organization_event";

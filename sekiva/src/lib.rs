@@ -49,18 +49,6 @@ enum ContractType {
 }
 
 #[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
-struct OrganizationInit {
-    name: String,
-    description: String,
-    profile_image: String,
-    banner_image: String,
-    x_url: String,
-    discord_url: String,
-    website_url: String,
-    administrator: Address,
-}
-
-#[derive(CreateTypeSpec, ReadWriteState, ReadWriteRPC, Clone)]
 #[repr(u8)]
 enum OrganizationEvent {
     #[discriminant(0)]
@@ -172,6 +160,10 @@ pub fn initialize(
 /// * `description` - the description of the organization.
 /// * `profile_image` - the profile image of the organization.
 /// * `banner_image` - the banner image of the organization.
+/// * `x_url` - the X URL of the organization.
+/// * `discord_url` - the Discord URL of the organization.
+/// * `website_url` - the website URL of the organization.
+/// * `administrator` - the administrator of the organization.
 ///
 /// # Returns
 ///
@@ -181,7 +173,14 @@ pub fn initialize(
 fn deploy_organization(
     ctx: ContractContext,
     state: SekivaFactoryState,
-    org_init: OrganizationInit,
+    name: String,
+    description: String,
+    profile_image: String,
+    banner_image: String,
+    x_url: String,
+    discord_url: String,
+    website_url: String,
+    administrator: Address,
 ) -> (SekivaFactoryState, Vec<EventGroup>) {
     let org_contract_address = Address {
         address_type: AddressType::PublicContract,
@@ -205,14 +204,14 @@ fn deploy_organization(
         .argument(state.organization_contract_wasm.clone())
         .argument(state.organization_contract_abi.clone())
         .argument(create_org_init_data(
-            org_init.name,
-            org_init.description,
-            org_init.profile_image,
-            org_init.banner_image,
-            org_init.x_url,
-            org_init.discord_url,
-            org_init.website_url,
-            org_init.administrator,
+            name,
+            description,
+            profile_image,
+            banner_image,
+            x_url,
+            discord_url,
+            website_url,
+            administrator,
             state.ballot_contract_zkwa.clone(),
             state.ballot_contract_abi.clone(),
             ctx.contract_address,
@@ -246,6 +245,7 @@ fn deploy_organization(
 /// * `callback_ctx`: [`CallbackContext`], the context of the callback.
 /// * `state`: [`SekivaFactoryState`], the state before the call.
 /// * `org_contract_address`: [`Address`], the address of the deployed organization.
+/// * `process_id`: [`String`], the process ID of the deployment.
 /// ### Returns:
 /// The new state of type [`SekivaFactoryState`].
 #[callback(shortname = 0x10)]

@@ -174,3 +174,102 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ZK Smart Contracts Guide](https://partisiablockchain.gitlab.io/documentation/smart-contracts/zk-smart-contracts/zk-smart-contracts.html)
 - [ZK Rust Language](https://partisiablockchain.gitlab.io/documentation/smart-contracts/zk-smart-contracts/zk-rust-language-zkrust.html)
 - [Partisia Community Discord](https://partisiablockchain.gitlab.io/documentation/get-support-from-pbc-community.html)
+
+## 🛠 How to Deploy a Sekiva
+
+### 1. Build the Contracts
+
+```bash
+cargo pbc build --release
+````
+
+This will output the compiled artifacts to:
+
+```bash
+
+target/wasm32-unknown-unknown/release/
+```
+
+For each package in the workspace, you'll see:
+
+`<name>.pbc`
+
+`<name>.abi`
+
+`<name>.wasm`
+
+(If ZK): `<name>.zkwa`, `<name>.zkbc`, `<name>.jar`
+
+---
+
+### 2. (Optional) Create an Account
+
+If you don’t already have an account, create one:
+
+```bash
+cargo pbc account create
+```
+
+This will generate a file named like:
+
+```bash
+[public-address].pk
+```
+
+You can rename it to something simpler (e.g. `Account-A.pk`). We’ll refer to it as:
+
+```bash
+<PK-FILE>
+```
+
+---
+
+### 3. Deploy the Factory
+
+Use the following command to deploy the Sekiva contracts:
+
+```bash
+cargo pbc transaction deploy \
+  --gas 10000000 \
+  --privatekey <PK-FILE> \
+  <SEKIVA-PBC> <BALLOT_ZKWA> <BALLOT_ABI> <COLLECTIVE_WASM> <COLLECTIVE_ABI>
+```
+
+Each argument after `<PK-FILE>` must be formatted as:
+
+```bash
+file:target/wasm32-unknown-unknown/release/<PACKAGE>.<EXT>
+```
+
+---
+
+### 🧪 Example
+
+```bash
+cargo pbc transaction deploy \
+  --gas 10000000 \
+  --privatekey Account-A.pk \
+  target/wasm32-unknown-unknown/release/sekiva.pbc \
+  'file:target/wasm32-unknown-unknown/release/ballot.zkwa' \
+  'file:target/wasm32-unknown-unknown/release/ballot.abi' \
+  'file:target/wasm32-unknown-unknown/release/collective.wasm' \
+  'file:target/wasm32-unknown-unknown/release/collective.abi'
+```
+
+### ✅ Deployment Success
+
+If the deployment succeeds, you will see output like this:
+
+```text
+Deployed contract successfully.
+Contract deployed at: <CONTRACT_ADDRESS>
+View it in browser here: https://browser.testnet.partisiablockchain.com/contracts/<CONTRACT_ADDRESS>
+```
+
+### 📝 Deploy notes
+
+- Ensure you've built all packages before deploying.
+
+- If a contract uses ZK, ensure its `.zkwa`, `.zkbc`, and `.jar` are present.
+
+- You can script the file collection by globbing `target/wasm32-unknown-unknown/release/`.

@@ -13,8 +13,9 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 
-// 0260ad74b28b38c48409f55b5f4a60ec6898ebfc1e
-const FACTORY_ADDRESS = "02e2001a2aa0ad2caf29687d5b8e6fb7dfb1d5f1ff";
+//02e2001a2aa0ad2caf29687d5b8e6fb7dfb1d5f1ff
+const FACTORY_ADDRESS = "0201a1e0d7b15ddaaa08d5e9c7cb0a1535cc2ab7b4";
+// const FACTORY_ADDRESS = "02e2001a2aa0ad2caf29687d5b8e6fb7dfb1d5f1ff";
 
 export interface OrganizationInit {
   name: string;

@@ -116,7 +116,6 @@ The system consists of three main smart contracts and a modern frontend:
    bun run dev
    ```
 
-
 ## Contract Shortname Scheme
 
 The contracts use a systematic shortname numbering scheme:
@@ -226,7 +225,9 @@ You can rename it to something simpler (e.g. `Account-A.pk`). We’ll refer to i
 
 ### 3. Deploy the Factory
 
-Use the following command to deploy the Sekiva contracts:
+#### Option 1
+
+Use the following command to deploy the Sekiva factory contract:
 
 ```bash
 cargo pbc transaction deploy \
@@ -240,6 +241,12 @@ Each argument after `<PK-FILE>` must be formatted as:
 ```bash
 file:target/wasm32-unknown-unknown/release/<PACKAGE>.<EXT>
 ```
+
+#### Option 2
+
+Go to <https://browser.testnet.partisiablockchain.com/contracts/deploy> in your browser
+
+and add the `<FACTORY_ABI>` and `<FACTORY_WASM>` files on the left. Then add the other initialization files through the revealed upload buttons, connect a funded wallet and click "DEPLOY"
 
 ---
 
@@ -274,3 +281,25 @@ View it in browser here: https://browser.testnet.partisiablockchain.com/contract
 
 - You can script the file collection by globbing `target/wasm32-unknown-unknown/release/`.
 
+## Deploying a collective
+
+Requires the deployment of sekiva (factory contract). once deployed the contract address will become `<SEKIVA_CONTRACT_ADDRESS>`
+
+```bash
+
+cargo pbc transaction action <SEKIVA_CONTRACT_ADDRESS> deploy_organization <ORG_NAME> <ORG_DESCRIPTION> <ORG_PROFILE_IMAGE> <ORG_BANNER_IMAGE> <X_URL> <DISCORD_URL> <WEBSITE_URL> <ORG_ADMINISTRATOR> --abi <SEKIVA_ABI> --gas 10000000 --privatekey <PRIVATE_KEY_FILE>
+```
+
+## Deploying a ballot
+
+Requires the deployment of organzization contract. once deployed the transaction will come back as
+
+Transaction successfully sent: <https://browser.testnet.partisiablockchain.com/transactions/d8ad20e9ced6ac5a520734e7a51cbe067086205f82c48b4714d3781070c4cdd5>
+
+you can get the contract address by looking for the deployed contract address in the UI
+
+```bash
+cargo pbc transaction action <ORG_CONTRACT_ADDRESS> deploy_ballot [ <UP_TO_5_OPTIONS_SEPARATED_BY_A_SPACE> ] <BALLOT_TITLE> <BALLOT_DESC> <ADMIN> <DURATION_IN_SECONDS> --abi <ORG_PBC> --gas 10000000 --privatekey <PRIVATE_KEY_FILE>
+```
+
+cargo pbc transaction action 02a51cbe067086205f82c48b4714d3781070c4cdd5 deploy_ballot [ YES NO ] 'Does this work?' "Let's see..." '00ccb2dd9d08a91f1815c0945762597f48bc5323c6' 300 --abi target/wasm32-unknown-unknown/release/collective.pbc --gas 10000000 --privatekey 006e0dd6c0dfa4b012e0b3ac085b1105754879503a.pk

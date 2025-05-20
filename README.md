@@ -273,6 +273,8 @@ Contract deployed at: <CONTRACT_ADDRESS>
 View it in browser here: https://browser.testnet.partisiablockchain.com/contracts/<CONTRACT_ADDRESS>
 ```
 
+You can update the FACTORY_ADDRESS in sekiva-frontend `useFactoryContract` to your newly deployed address to make the frontend functions work. Front end requires a deployed factory contract as well as the generated files if you make any changes.
+
 ### 📝 Deploy notes
 
 - Ensure you've built all packages before deploying.

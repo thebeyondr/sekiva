@@ -1,7 +1,9 @@
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
-import { OrganizationInit } from "@/contracts/SekivaFactoryGenerated";
-import { useDeployOrganization } from "@/hooks/useFactoryContract";
+import {
+  useDeployOrganization,
+  OrganizationInit,
+} from "@/hooks/useFactoryContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useState } from "react";

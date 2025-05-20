@@ -4,14 +4,13 @@ import {
   OrganizationState,
   deserializeState,
   deployBallot,
-  BallotInit,
   addAdministrator,
   removeAdministrator,
   addMember,
   removeMember,
   addMembers,
 } from "@/contracts/OrganizationGenerated";
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
+import { BlockchainAddress, BN } from "@partisiablockchain/abi-client";
 import {
   BlockchainTransactionClient,
   SentTransaction,
@@ -32,6 +31,14 @@ export type Organization = OrganizationState & {
   lastUpdated: number;
   shardId: ShardId;
 };
+
+export interface BallotInit {
+  options: string[];
+  title: string;
+  description: string;
+  administrator: BlockchainAddress;
+  durationSeconds: BN;
+}
 
 export interface TransactionPointer {
   identifier: string;
@@ -239,7 +246,13 @@ export function useDeployBallot() {
           TESTNET_URL,
           account
         );
-        const rpc = deployBallot(params.ballotInfo);
+        const rpc = deployBallot(
+          params.ballotInfo.options,
+          params.ballotInfo.title,
+          params.ballotInfo.description,
+          params.ballotInfo.administrator,
+          params.ballotInfo.durationSeconds
+        );
         const txn: SentTransaction = await txClient.signAndSend(
           { address: params.organizationAddress.asString(), rpc },
           10_000_000

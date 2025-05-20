@@ -15,6 +15,7 @@ import {
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { Client, RealZkClient } from "@partisiablockchain/zk-client";
 
 export type Ballot = BallotState & {
   lastUpdated: number;
@@ -72,12 +73,21 @@ export function useBallotContract() {
   ): Promise<SentTransaction> => {
     if (!account) throw new Error("Wallet not connected");
     const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
-    const rpc = castVote();
-    const secretInput = rpc.secretInput(choice);
-    return txClient.signAndSend(
-      { address: ballotAddress, rpc: secretInput.publicRpc },
-      100_000
+    const zkClient = RealZkClient.create(
+      ballotAddress,
+      new Client(TESTNET_URL)
     );
+
+    const voteSecretInputBuilder = castVote();
+    const secretInput = voteSecretInputBuilder.secretInput(choice);
+
+    const transaction = await zkClient.buildOnChainInputTransaction(
+      account.getAddress(),
+      secretInput.secretInput,
+      secretInput.publicRpc
+    );
+
+    return txClient.signAndSend(transaction, 100_000);
   };
 
   const computeTallyFn = async (

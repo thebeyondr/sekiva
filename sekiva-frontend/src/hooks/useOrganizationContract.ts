@@ -11,19 +11,17 @@ import {
   addMembers,
 } from "@/contracts/OrganizationGenerated";
 import { BlockchainAddress, BN } from "@partisiablockchain/abi-client";
-import {
-  BlockchainTransactionClient,
-  SentTransaction,
-} from "@partisiablockchain/blockchain-api-transaction-client";
+import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
 import {
   useMutation,
   useQuery,
   useQueries,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useBallotContract } from "./useBallotContract";
 import { ShardId } from "@/partisia-config";
+import { useTransaction } from "./useTransaction";
 
 export type OrganizationId = string;
 
@@ -231,8 +229,7 @@ export function useOrganizationContract() {
 export function useDeployBallot() {
   const { account } = useAuth();
   const queryClient = useQueryClient();
-  const [transactionPointer, setTransactionPointer] =
-    useState<TransactionPointer | null>(null);
+  const { sendTransaction, transactionPointer } = useTransaction();
 
   const mutation = useMutation({
     mutationFn: async (params: {
@@ -242,10 +239,6 @@ export function useDeployBallot() {
       if (!account) throw new Error("Wallet not connected");
       console.log("Deploying ballot with account", account.getAddress());
       try {
-        const txClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
         const rpc = deployBallot(
           params.ballotInfo.options,
           params.ballotInfo.title,
@@ -253,22 +246,13 @@ export function useDeployBallot() {
           params.ballotInfo.administrator,
           params.ballotInfo.durationSeconds
         );
-        const txn: SentTransaction = await txClient.signAndSend(
-          { address: params.organizationAddress.asString(), rpc },
-          10_000_000
-        );
-        console.log("Ballot deployed with txn", txn);
 
-        if (txn.transactionPointer) {
-          const pointer: TransactionPointer = {
-            identifier: txn.transactionPointer.identifier,
-            destinationShardId:
-              txn.transactionPointer.destinationShardId.toString(),
-          };
-          setTransactionPointer(pointer);
-        }
-
-        return txn;
+        return await sendTransaction({
+          type: "regular",
+          address: params.organizationAddress.asString(),
+          rpc,
+          gasCost: 10_000_000,
+        });
       } catch (err) {
         throw new Error(
           "Error deploying ballot: " +

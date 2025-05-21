@@ -3,19 +3,17 @@ import { TESTNET_URL, SHARD_PRIORITY, ShardId } from "@/partisia-config";
 import {
   BallotState,
   deserializeState,
-  castVote,
   computeTally,
   cancelBallot,
   syncVoters,
 } from "@/contracts/BallotGenerated";
-import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import {
-  BlockchainTransactionClient,
-  SentTransaction,
-} from "@partisiablockchain/blockchain-api-transaction-client";
+  BlockchainAddress,
+  AbiBitOutput,
+} from "@partisiablockchain/abi-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Client, RealZkClient } from "@partisiablockchain/zk-client";
+import { useTransaction } from "./useTransaction";
 
 export type Ballot = BallotState & {
   lastUpdated: number;
@@ -61,72 +59,109 @@ export const getBallotState = async (id: string): Promise<Ballot> => {
 };
 
 export function useBallotContract() {
-  const { account, walletAddress } = useAuth();
+  const { account } = useAuth();
+  const { sendTransaction } = useTransaction();
+  const queryClient = useQueryClient();
 
-  const getState = async (id: string): Promise<Ballot> => {
-    return getBallotState(id);
-  };
-
-  const castVoteFn = async (
-    ballotAddress: string,
-    choice: number
-  ): Promise<SentTransaction> => {
-    if (!account) throw new Error("Wallet not connected");
-    const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
-    const zkClient = RealZkClient.create(
+  const castVoteMutation = useMutation({
+    mutationFn: async ({
       ballotAddress,
-      new Client(TESTNET_URL)
-    );
+      choice,
+    }: {
+      ballotAddress: string;
+      choice: number;
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
 
-    const voteSecretInputBuilder = castVote();
-    const secretInput = voteSecretInputBuilder.secretInput(choice);
+      const secretInputData = AbiBitOutput.serialize((_out) => {
+        _out.writeI8(choice);
+      });
 
-    const transaction = await zkClient.buildOnChainInputTransaction(
-      account.getAddress(),
-      secretInput.secretInput,
-      secretInput.publicRpc
-    );
+      return sendTransaction({
+        type: "secret",
+        address: ballotAddress,
+        secretInput: secretInputData,
+        publicRpc: Buffer.from("60", "hex"),
+        gasCost: 100_000,
+      });
+    },
+    onSuccess: (_, { ballotAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
 
-    return txClient.signAndSend(transaction, 100_000);
-  };
+  const computeTallyMutation = useMutation({
+    mutationFn: async (ballotAddress: string) => {
+      if (!account) throw new Error("Wallet not connected");
+      const rpc = computeTally();
+      return sendTransaction({
+        type: "regular",
+        address: ballotAddress,
+        rpc,
+        gasCost: 100_000,
+      });
+    },
+    onSuccess: (_, ballotAddress) => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
 
-  const computeTallyFn = async (
-    ballotAddress: string
-  ): Promise<SentTransaction> => {
-    if (!account) throw new Error("Wallet not connected");
-    const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
-    const rpc = computeTally();
-    return txClient.signAndSend({ address: ballotAddress, rpc }, 100_000);
-  };
+  const cancelBallotMutation = useMutation({
+    mutationFn: async (ballotAddress: string) => {
+      if (!account) throw new Error("Wallet not connected");
+      const rpc = cancelBallot();
+      return sendTransaction({
+        type: "regular",
+        address: ballotAddress,
+        rpc,
+        gasCost: 100_000,
+      });
+    },
+    onSuccess: (_, ballotAddress) => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
 
-  const cancelBallotFn = async (
-    ballotAddress: string
-  ): Promise<SentTransaction> => {
-    if (!account) throw new Error("Wallet not connected");
-    const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
-    const rpc = cancelBallot();
-    return txClient.signAndSend({ address: ballotAddress, rpc }, 100_000);
-  };
-
-  const syncVotersFn = async (
-    ballotAddress: string,
-    voters: BlockchainAddress[]
-  ): Promise<SentTransaction> => {
-    if (!account) throw new Error("Wallet not connected");
-    const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
-    const rpc = syncVoters(voters);
-    return txClient.signAndSend({ address: ballotAddress, rpc }, 100_000);
-  };
+  const syncVotersMutation = useMutation({
+    mutationFn: async ({
+      ballotAddress,
+      voters,
+    }: {
+      ballotAddress: string;
+      voters: BlockchainAddress[];
+    }) => {
+      if (!account) throw new Error("Wallet not connected");
+      const rpc = syncVoters(voters);
+      return sendTransaction({
+        type: "regular",
+        address: ballotAddress,
+        rpc,
+        gasCost: 100_000,
+      });
+    },
+    onSuccess: (_, { ballotAddress }) => {
+      queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
+    },
+  });
 
   return useMemo(
     () => ({
-      getState,
-      castVote: castVoteFn,
-      computeTally: computeTallyFn,
-      cancelBallot: cancelBallotFn,
-      syncVoters: syncVotersFn,
+      getState: getBallotState,
+      castVote: (ballotAddress: string, choice: number) =>
+        castVoteMutation.mutateAsync({ ballotAddress, choice }),
+      computeTally: (ballotAddress: string) =>
+        computeTallyMutation.mutateAsync(ballotAddress),
+      cancelBallot: (ballotAddress: string) =>
+        cancelBallotMutation.mutateAsync(ballotAddress),
+      syncVoters: (ballotAddress: string, voters: BlockchainAddress[]) =>
+        syncVotersMutation.mutateAsync({ ballotAddress, voters }),
     }),
-    [account, walletAddress]
+    [
+      castVoteMutation,
+      computeTallyMutation,
+      cancelBallotMutation,
+      syncVotersMutation,
+    ]
   );
 }
 

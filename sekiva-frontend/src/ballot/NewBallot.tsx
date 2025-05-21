@@ -40,11 +40,7 @@ function NewBallot() {
   const [txDetails, setTxDetails] = useState<TransactionPointer | null>(null);
   const { account } = useAuth();
   const { organizationId: collectiveId } = useParams();
-  const {
-    mutate: deployBallot,
-    isPending: isDeploying,
-    transactionPointer,
-  } = useDeployBallot();
+  const { mutate: deployBallot, isPending: isDeploying } = useDeployBallot();
 
   const [testBallotData, setTestBallotData] = useState<{
     title: string;
@@ -112,15 +108,10 @@ function NewBallot() {
           },
           {
             onSuccess: (data) => {
-              if (transactionPointer) {
-                setTxDetails(transactionPointer);
-              } else if (data.transactionPointer) {
-                setTxDetails({
-                  identifier: data.transactionPointer.identifier,
-                  destinationShardId:
-                    data.transactionPointer.destinationShardId.toString(),
-                });
-              }
+              setTxDetails({
+                identifier: data.identifier,
+                destinationShardId: data.destinationShardId,
+              });
             },
             onError: (error) => {
               setError(error instanceof Error ? error.message : String(error));

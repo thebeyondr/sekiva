@@ -22,6 +22,7 @@ import { useForm } from "@tanstack/react-form";
 import BN from "bn.js";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import { ArrowLeft } from "lucide-react";
 
 type DurationOption = keyof typeof DURATION_OPTIONS;
 
@@ -135,17 +136,22 @@ function NewBallot() {
     <div className="min-h-screen bg-sk-yellow-saturated">
       <div className="container mx-auto max-w-[1500px]">
         <NavBar />
+        {/* Back Navigation */}
+        {collectiveId && (
+          <section className="py-4 px-6">
+            <Link
+              to={`/collectives/${collectiveId}`}
+              title="Back to Collective"
+            >
+              <Button variant="link" className="text-left">
+                <ArrowLeft className="w-4 h-4" />
+                <p className="font-bold">Back to Collective</p>
+              </Button>
+            </Link>
+          </section>
+        )}
         <section className="container mx-auto max-w-3xl py-10">
           <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
-            {collectiveId && (
-              <div className="mb-4 flex items-center">
-                <Link to={`/collectives/${collectiveId}`}>
-                  <Button variant="outline" size="sm" className="text-xs">
-                    &larr; Back to Collective
-                  </Button>
-                </Link>
-              </div>
-            )}
             {process.env.NODE_ENV === "development" && account && (
               <Button
                 type="button"

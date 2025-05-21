@@ -475,9 +475,14 @@ function NewBallot() {
                           <Button
                             type="submit"
                             className="w-full mt-4"
-                            disabled={!canSubmit || isSubmitting || !account}
+                            disabled={
+                              !canSubmit ||
+                              isSubmitting ||
+                              !account ||
+                              isDeploying
+                            }
                           >
-                            {isSubmitting ? "Creating..." : "Create ballot"}
+                            {isDeploying ? "Creating..." : "Create ballot"}
                           </Button>
                         </>
                       )}
@@ -495,7 +500,6 @@ function NewBallot() {
         <TransactionDialog
           action="deploy"
           id={txDetails.identifier}
-          destinationShard={txDetails.destinationShardId}
           trait="ballot"
           returnPath={`/collectives/${collectiveId}`}
           onSuccess={(contractAddress) => {

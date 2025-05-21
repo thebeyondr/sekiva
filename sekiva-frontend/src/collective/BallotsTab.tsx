@@ -76,23 +76,29 @@ const BallotsTab = ({
       <BallotListHeader organizationId={organizationId} />
       <div className="space-y-6">
         {ballotEntries.length > 0 ? (
-          ballotEntries.map(([address, ballot], index) => {
-            const hasVoted = account
-              ? ballot.alreadyVoted.some(
-                  (v: BlockchainAddress) =>
-                    v.asString() === account.getAddress()
-                )
-              : false;
+          ballotEntries
+            .sort((a, b) => {
+              const aStartTime = Number(a[1].startTime);
+              const bStartTime = Number(b[1].startTime);
+              return bStartTime - aStartTime; // Most recent first
+            })
+            .map(([address, ballot], index) => {
+              const hasVoted = account
+                ? ballot.alreadyVoted.some(
+                    (v: BlockchainAddress) =>
+                      v.asString() === account.getAddress()
+                  )
+                : false;
 
-            const props = transformBallotStateToCardProps(
-              ballot,
-              BlockchainAddress.fromString(address),
-              organizationId,
-              hasVoted,
-              index
-            );
-            return <BallotCard key={props.id} {...props} />;
-          })
+              const props = transformBallotStateToCardProps(
+                ballot,
+                BlockchainAddress.fromString(address),
+                organizationId,
+                hasVoted,
+                index
+              );
+              return <BallotCard key={props.id} {...props} />;
+            })
         ) : (
           <EmptyBallotState />
         )}

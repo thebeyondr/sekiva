@@ -13,7 +13,6 @@ import BallotCard from "./BallotCard";
 import { BallotStatusD } from "@/contracts/BallotGenerated";
 import { transformBallotStateToCardProps } from "@/lib/ballotUtils";
 import { TransactionDialog } from "@/components/shared/TransactionDialog";
-import { SentTransaction } from "@partisiablockchain/blockchain-api-transaction-client";
 
 type ErrorWithMessage = { message: string };
 function isErrorWithMessage(e: unknown): e is ErrorWithMessage {
@@ -35,10 +34,10 @@ const BallotPage = () => {
   );
   const ballot = ballots.find((b) => b.address.asString() === ballotId);
   const { account, canPerformAction } = useAuth();
-  const [txDialog, setTxDialog] = useState<{
+  const [txDetails, setTxDetails] = useState<{
     id: string;
     destinationShard: string;
-    open: boolean;
+    action: "action";
   } | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isMember, setIsMember] = useState<boolean>(false);
@@ -95,39 +94,44 @@ const BallotPage = () => {
 
   const handleStartTally = () => {
     startTally(ballotId || "", {
-      onSuccess: (txn: SentTransaction) => {
-        if (txn?.transactionPointer) {
-          setTxDialog({
-            id: txn.transactionPointer.identifier,
-            destinationShard: txn.transactionPointer.destinationShardId,
-            open: true,
+      onSuccess: (data) => {
+        console.log("Start tally success:", data);
+        if (data?.identifier && data?.destinationShardId) {
+          setTxDetails({
+            id: data.identifier,
+            destinationShard: data.destinationShardId,
+            action: "action",
+          });
+          console.log("Set tx details for tally:", {
+            id: data.identifier,
+            destinationShard: data.destinationShardId,
           });
         }
-      },
-      onError: () => {
-        setTxDialog(null);
       },
     });
   };
 
   const handleCastVote = () => {
+    console.log("Casting vote with option:", selectedOption);
     castVote(
       {
         ballotAddress: ballotId!,
         choice: selectedOption || 0,
       },
       {
-        onSuccess: (txn: SentTransaction) => {
-          if (txn?.transactionPointer) {
-            setTxDialog({
-              id: txn.transactionPointer.identifier,
-              destinationShard: txn.transactionPointer.destinationShardId,
-              open: true,
+        onSuccess: (data) => {
+          console.log("Cast vote success:", data);
+          if (data?.identifier && data?.destinationShardId) {
+            setTxDetails({
+              id: data.identifier,
+              destinationShard: data.destinationShardId,
+              action: "action",
+            });
+            console.log("Set tx details for vote:", {
+              id: data.identifier,
+              destinationShard: data.destinationShardId,
             });
           }
-        },
-        onError: () => {
-          setTxDialog(null);
         },
       }
     );
@@ -161,11 +165,19 @@ const BallotPage = () => {
     }
   }
 
-  console.log("Winning options:", winningOptions);
-
   return (
     <div className="min-h-screen bg-sk-yellow-light">
       <NavBar />
+      {/* Transaction Dialog */}
+      {txDetails && (
+        <TransactionDialog
+          action={txDetails.action}
+          id={txDetails.id}
+          trait="other"
+          onSuccess={() => setTxDetails(null)}
+          onError={() => setTxDetails(null)}
+        />
+      )}
       <div className="container mx-auto max-w-[1500px]">
         <section className="container mx-auto max-w-4xl py-6">
           <section className="mb-4 flex items-center">
@@ -372,18 +384,6 @@ const BallotPage = () => {
                     </CardContent>
                   </Card>
                 )}
-
-              {/* Transaction Dialog for admin actions */}
-              {txDialog?.open && (
-                <TransactionDialog
-                  action="action"
-                  id={txDialog.id}
-                  destinationShard={txDialog.destinationShard}
-                  trait="ballot"
-                  onSuccess={() => setTxDialog(null)}
-                  onError={() => setTxDialog(null)}
-                />
-              )}
             </div>
           ) : (
             <div className="text-center py-12">

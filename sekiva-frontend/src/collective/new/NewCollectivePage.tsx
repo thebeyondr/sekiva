@@ -12,6 +12,8 @@ import { PrefixedTextField } from "./PrefixedTextField";
 import CollectivePreview from "./CollectivePreview";
 import NavBar from "@/components/shared/NavBar";
 import { TextField } from "./TextField";
+import { Link } from "react-router";
+import { ArrowLeft } from "lucide-react";
 
 const NewCollectivePage = () => {
   const { account, isConnected, connect, disconnect } = useAuth();
@@ -90,6 +92,16 @@ const NewCollectivePage = () => {
     <div className="min-h-screen bg-sk-yellow-saturated">
       <NavBar />
       <div className="container mx-auto max-w-[1500px]">
+        {/* Back Navigation */}
+        <section className="py-4 px-6">
+          <Link to="/collectives" title="Back to Collectives">
+            <Button variant="link" className="text-left">
+              <ArrowLeft className="w-4 h-4" />
+              <p className="font-bold">All Collectives</p>
+            </Button>
+          </Link>
+        </section>
+
         <section className="container mx-auto max-w-3xl py-10">
           <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
             <form

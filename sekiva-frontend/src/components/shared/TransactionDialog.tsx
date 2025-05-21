@@ -41,7 +41,7 @@ export function TransactionDialog({
           onSuccess(status.contractAddress!);
         }
         setShowConfetti(true);
-      }, 5000);
+      }, 10000); // 10 seconds
 
       return () => clearTimeout(timer);
     }
@@ -122,8 +122,19 @@ export function TransactionDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[480px] border-2 border-black rounded-lg p-0 overflow-hidden transition-all duration-300 shadow-xl">
+    <Dialog
+      open={open}
+      onOpenChange={(newOpen) => {
+        if (status.isSuccess && status.isFinalized && !canNavigate) {
+          return;
+        }
+        setOpen(newOpen);
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-[480px] border-2 border-black rounded-lg p-0 overflow-hidden transition-all duration-300 shadow-xl"
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="border-b border-gray-200 p-4">
           <DialogTitle className="text-xl font-bold">
             {action === "deploy" ? "Deploying" : "Processing"} Transaction

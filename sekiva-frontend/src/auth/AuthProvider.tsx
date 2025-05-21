@@ -26,21 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const session = SessionManager.getPartiWalletSession();
         if (!session?.connection?.account?.address) return;
 
-        const address = session.connection.account.address;
-
-        // Create read-only account for restored session
-        const restoredAccount: SenderAuthentication = {
-          getAddress: () => address,
-          sign: async () => {
-            throw new Error("Wallet not connected for signing");
-          },
-        };
-
-        if (isMounted) {
-          setWalletAddress(address);
-          setAccount(restoredAccount);
-          setConnectError(null);
-        }
+        // Don't create read-only accounts, force user to reconnect
+        SessionManager.clearWalletConnection();
       } catch (error) {
         console.error("Failed to restore session:", error);
         if (isMounted) {

@@ -199,7 +199,6 @@ const NewCollectivePage = () => {
                 <TransactionDialog
                   action="deploy"
                   id={txDetails.identifier}
-                  destinationShard={txDetails.destinationShardId}
                   trait="collective"
                   returnPath="/collectives"
                   onSuccess={() => setTxDetails(null)}

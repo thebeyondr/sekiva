@@ -13,7 +13,6 @@ import { Loader2, AlertCircle, ExternalLink } from "lucide-react";
 interface TransactionDialogProps {
   action: "deploy" | "action";
   id: string;
-  destinationShard: string;
   trait?: "ballot" | "collective" | "other";
   returnPath?: string;
   onSuccess?: (contractAddress: string) => void;
@@ -23,7 +22,6 @@ interface TransactionDialogProps {
 export function TransactionDialog({
   action,
   id,
-  destinationShard,
   trait = "other",
   returnPath,
   onSuccess,
@@ -32,7 +30,7 @@ export function TransactionDialog({
   const [open, setOpen] = useState(true);
   const [canNavigate, setCanNavigate] = useState(false);
   const navigate = useNavigate();
-  const status = useTransactionStatus(id, destinationShard, trait);
+  const status = useTransactionStatus(id, trait);
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {

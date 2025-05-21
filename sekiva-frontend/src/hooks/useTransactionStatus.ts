@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { TESTNET_URL } from "@/partisia-config";
+import { SHARD_PRIORITY, TESTNET_URL } from "@/partisia-config";
 
 interface ExecutionStatus {
   success: boolean;
@@ -26,13 +26,12 @@ export interface TransactionStatus {
   contractAddress: string | null;
 }
 
-const TRANSACTION_TTL = 60_000; // 60 seconds
-const DELAY_BETWEEN_RETRIES = 1_000; // 1 second
+const TRANSACTION_TTL = 120_000; // 120 seconds
+const DELAY_BETWEEN_RETRIES = 2_000; // 2 seconds
 const MAX_TRIES = TRANSACTION_TTL / DELAY_BETWEEN_RETRIES;
 
 export function useTransactionStatus(
   id: string,
-  destinationShard: string,
   trait?: "ballot" | "collective" | "other"
 ) {
   const [status, setStatus] = useState<TransactionStatus>({
@@ -45,6 +44,75 @@ export function useTransactionStatus(
     contractAddress: null,
   });
 
+  const fetchTransactionFromShard = useCallback(async (id: string) => {
+    for (const shard of SHARD_PRIORITY) {
+      try {
+        const response = await fetch(
+          `${TESTNET_URL}/chain/shards/${shard}/transactions/${id}`
+        );
+
+        if (!response.ok) continue;
+
+        try {
+          // Try to parse as JSON directly first
+          const data = await response.json();
+          console.log("Fetched transaction data:", data);
+          if (data?.identifier === id) {
+            console.log(`Found transaction in ${shard}`);
+            return { data, shard };
+          }
+        } catch (jsonError) {
+          console.debug(
+            `Initial JSON parse failed for shard ${shard}:`,
+            jsonError
+          );
+          // If JSON parsing fails, try to get text and parse manually
+          const text = await response.text();
+          try {
+            // Clean the response text if needed
+            const cleanedText = text.trim();
+            const data = JSON.parse(cleanedText);
+            if (data?.identifier === id) {
+              console.log(`Found transaction in ${shard} (after text cleanup)`);
+              return { data, shard };
+            }
+          } catch (e) {
+            console.debug(`Failed to parse response from shard ${shard}:`, e);
+            continue;
+          }
+        }
+      } catch (e) {
+        console.debug(`Failed to fetch from shard ${shard}:`, e);
+        continue;
+      }
+    }
+    return null;
+  }, []);
+
+  const fetchContractFromShards = useCallback(
+    async (contractAddress: string) => {
+      for (const shard of SHARD_PRIORITY) {
+        try {
+          const response = await fetch(
+            `${TESTNET_URL}/shards/${shard}/blockchain/contracts/${contractAddress}`
+          );
+
+          if (!response.ok) continue;
+
+          const data = await response.json();
+          if (data?.serializedContract) {
+            return true;
+          }
+        } catch (e) {
+          console.debug(`Failed to fetch contract from shard ${shard}:`, e);
+          continue;
+        }
+      }
+      return false;
+    },
+    []
+  );
+
   const fetchStatus = useCallback(async () => {
     if (!id) return;
 
@@ -53,14 +121,10 @@ export function useTransactionStatus(
     else if (trait === "collective") prefix = "02";
 
     try {
-      // Fetch transaction data from shard
-      const response = await fetch(
-        `${TESTNET_URL}/shards/${destinationShard}/blockchain/transactions/${id}`
-      ).then((res) => res.json());
+      const result = await fetchTransactionFromShard(id);
+      console.log("Transaction result:", result);
 
-      const executedTransaction = response?.transaction;
-
-      if (!executedTransaction) {
+      if (!result) {
         setStatus((prev) => ({
           ...prev,
           isLoading: true,
@@ -71,63 +135,66 @@ export function useTransactionStatus(
         return;
       }
 
-      let contractAddress = null;
-      if (executedTransaction.executionSucceeded) {
-        contractAddress = prefix + id.substring(id.length - 40);
+      const { data } = result;
+      const executionStatus = data.executionStatus;
+
+      if (!executionStatus) {
+        setStatus((prev) => ({
+          ...prev,
+          isLoading: true,
+          isSuccess: false,
+          isError: false,
+          isFinalized: false,
+        }));
+        return;
       }
 
-      // Check if contract exists
-      if (contractAddress) {
-        const contractResponse = await fetch(
-          `${TESTNET_URL}/shards/${destinationShard}/blockchain/contracts/${contractAddress}`
-        ).then((res) => res.json());
+      let contractAddress: string | null = null;
+      // Only look for contract address if this is a deployment
+      if (executionStatus.success && trait !== "other") {
+        // Contract address is derived from the transaction ID
+        contractAddress = prefix + id.substring(id.length - 40);
 
-        const contractExists = !!contractResponse?.serializedContract;
-        if (!contractExists) {
-          setStatus((prev) => ({
-            ...prev,
-            isLoading: true,
-            isSuccess: false,
-            isError: false,
-            isFinalized: false,
-            contractAddress,
-          }));
-          return;
+        // Only check contract existence for deployments
+        if (contractAddress) {
+          const contractExists = await fetchContractFromShards(contractAddress);
+          if (!contractExists) {
+            setStatus((prev) => ({
+              ...prev,
+              isLoading: true,
+              isSuccess: executionStatus.success,
+              isError: false,
+              isFinalized: false,
+              contractAddress,
+            }));
+            return;
+          }
         }
       }
 
+      // For non-deployment actions, we can consider it finalized once the transaction is successful
+      const isActionFinalized =
+        trait === "other" ? executionStatus.success : executionStatus.finalized;
+
       setStatus({
         isLoading: false,
-        isSuccess: executedTransaction.executionSucceeded,
-        isError: !executedTransaction.executionSucceeded,
-        isFinalized: true,
-        error: executedTransaction.executionSucceeded
-          ? null
-          : new Error("Transaction failed"),
+        isSuccess: executionStatus.success,
+        isError: !executionStatus.success,
+        isFinalized: isActionFinalized,
+        error: executionStatus.success ? null : new Error("Transaction failed"),
         data: {
-          identifier: id,
+          identifier: data.identifier,
           executionStatus: {
-            success: executedTransaction.executionSucceeded,
-            finalized: true,
-            events: executedTransaction.events,
+            success: executionStatus.success,
+            finalized: executionStatus.finalized,
+            events: executionStatus.events,
+            transactionCost: executionStatus.transactionCost,
           },
+          content: data.content,
+          isEvent: data.isEvent,
         },
         contractAddress,
       });
-
-      // Handle events recursively
-      if (executedTransaction.events && executedTransaction.events.length > 0) {
-        await Promise.all(
-          executedTransaction.events.map(
-            async (event: { destinationShard: string; identifier: string }) => {
-              const eventResponse = await fetch(
-                `${TESTNET_URL}/shards/${event.destinationShard}/blockchain/transactions/${event.identifier}`
-              ).then((res) => res.json());
-              return eventResponse?.transaction;
-            }
-          )
-        );
-      }
     } catch (error) {
       setStatus((prev) => ({
         ...prev,
@@ -136,7 +203,7 @@ export function useTransactionStatus(
         error: error instanceof Error ? error : new Error(String(error)),
       }));
     }
-  }, [id, destinationShard, trait]);
+  }, [id, trait]);
 
   useEffect(() => {
     if (!id) return;
@@ -161,17 +228,27 @@ export function useTransactionStatus(
 
         if (!isMounted) return;
 
+        // Stop polling if we have a final state
         if (status.isFinalized || status.isError) {
           return;
         }
 
+        // Exponential backoff with a max delay of 5 seconds
         tryCount++;
-        timeoutId = setTimeout(pollStatus, DELAY_BETWEEN_RETRIES);
+        const delay = Math.min(
+          DELAY_BETWEEN_RETRIES * Math.pow(1.5, tryCount - 1),
+          5000
+        );
+        timeoutId = setTimeout(pollStatus, delay);
       } catch (error) {
         console.error("[Transaction] Error polling status:", error);
         tryCount++;
         if (isMounted) {
-          timeoutId = setTimeout(pollStatus, DELAY_BETWEEN_RETRIES);
+          const delay = Math.min(
+            DELAY_BETWEEN_RETRIES * Math.pow(1.5, tryCount - 1),
+            5000
+          );
+          timeoutId = setTimeout(pollStatus, delay);
         }
       }
     };

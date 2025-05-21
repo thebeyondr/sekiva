@@ -83,6 +83,16 @@ export function useTransaction() {
           );
         }
 
+        // 				{identifier: 'c8ba17ca3dced5778b9b6b746725f814f450cafab9fb18aa1f78f4894bcd207f', destinationShardId: 'Shard1'}
+        // destinationShardId
+        // :
+        // "Shard1"
+        // identifier
+        // :
+        // "c8ba17ca3dced5778b9b6b746725f814f450cafab9fb18aa1f78f4894bcd207f"
+
+        console.log("Transaction sent:", txn);
+
         // Wait for spawned events
         await txClient.waitForSpawnedEvents(txn);
 

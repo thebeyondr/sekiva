@@ -30,36 +30,31 @@ export function TransactionDialog({
   onError,
 }: TransactionDialogProps) {
   const [open, setOpen] = useState(true);
+  const [canNavigate, setCanNavigate] = useState(false);
   const navigate = useNavigate();
   const status = useTransactionStatus(id, destinationShard, trait);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // Handle success
   useEffect(() => {
     if (status.isSuccess && status.isFinalized && status.contractAddress) {
-      // Add delay before showing success to allow blockchain to stabilize
-      const successTimer = setTimeout(() => {
-        // Call success callback
+      const timer = setTimeout(() => {
+        setCanNavigate(true);
         if (onSuccess) {
           onSuccess(status.contractAddress!);
         }
-
-        // Trigger confetti animation on success
         setShowConfetti(true);
-      }, 5000); // 5 second delay
+      }, 5000);
 
-      return () => clearTimeout(successTimer);
+      return () => clearTimeout(timer);
     }
   }, [status.isSuccess, status.isFinalized, status.contractAddress, onSuccess]);
 
-  // Handle error
   useEffect(() => {
     if (status.isError && status.error && onError) {
       onError(status.error);
     }
   }, [status.isError, status.error, onError]);
 
-  // Calculate target path for navigation
   const getTargetPath = () => {
     if (!status.contractAddress || !returnPath) return returnPath;
 
@@ -80,13 +75,13 @@ export function TransactionDialog({
   const handleClose = () => {
     setOpen(false);
 
-    // For action transactions, refresh the current page
     if (action === "action" && status.isSuccess) {
       window.location.reload();
     }
   };
 
   const handleViewEntity = () => {
+    if (!canNavigate) return;
     setOpen(false);
     const targetPath = getTargetPath();
     if (targetPath) {
@@ -99,7 +94,6 @@ export function TransactionDialog({
     ? `https://browser.testnet.partisiablockchain.com/contracts/${status.contractAddress}?tab=state`
     : "";
 
-  // Custom styling based on status
   const getProgressPercentage = () => {
     if (status.isFinalized) return 100;
     if (status.isSuccess) return 75;
@@ -243,16 +237,24 @@ export function TransactionDialog({
             status.isFinalized &&
             action === "deploy" &&
             getTargetPath() ? (
-              // For successful deployments, show only a single button to view the entity
               <Button
                 variant="default"
                 onClick={handleViewEntity}
-                className="w-full py-6 bg-black hover:bg-stone-800 text-lg font-medium transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+                disabled={!canNavigate}
+                className={`w-full py-6 ${
+                  canNavigate ? "bg-black hover:bg-stone-800" : "bg-gray-400"
+                } text-lg font-medium transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]`}
               >
-                View {trait === "ballot" ? "Ballot" : "Collective"}
+                {!canNavigate ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Waiting for confirmation...
+                  </div>
+                ) : (
+                  `View ${trait === "ballot" ? "Ballot" : "Collective"}`
+                )}
               </Button>
             ) : (
-              // For all other cases (loading, errors, or actions), show only a close button
               <Button
                 variant="default"
                 onClick={handleClose}

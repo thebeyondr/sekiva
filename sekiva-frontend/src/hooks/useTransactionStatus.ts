@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { TESTNET_URL, SHARD_PRIORITY } from "@/partisia-config";
+import { TESTNET_URL } from "@/partisia-config";
 
 interface ExecutionStatus {
   success: boolean;
@@ -26,36 +26,13 @@ export interface TransactionStatus {
   contractAddress: string | null;
 }
 
-const verifyContractExists = async (address: string, shard: string) => {
-  try {
-    const url = `${TESTNET_URL}/chain/shards/${shard}/contracts/${address}`;
-    const response = await fetch(url);
-    return response.ok;
-  } catch {
-    return false;
-  }
-};
-
-const fetchTransactionFromShard = async (
-  id: string,
-  shard: string
-): Promise<TransactionData> => {
-  const url = `${TESTNET_URL}/chain/shards/${shard}/transactions/${id}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Error fetching transaction from ${shard}: ${response.statusText}`
-    );
-  }
-
-  const data = await response.json();
-  return data as TransactionData;
-};
+const TRANSACTION_TTL = 60_000; // 60 seconds
+const DELAY_BETWEEN_RETRIES = 1_000; // 1 second
+const MAX_TRIES = TRANSACTION_TTL / DELAY_BETWEEN_RETRIES;
 
 export function useTransactionStatus(
   id: string,
-  initialShard: string,
+  destinationShard: string,
   trait?: "ballot" | "collective" | "other"
 ) {
   const [status, setStatus] = useState<TransactionStatus>({
@@ -76,156 +53,136 @@ export function useTransactionStatus(
     else if (trait === "collective") prefix = "02";
 
     try {
-      const data = await fetchTransactionFromShard(id, initialShard);
+      // Fetch transaction data from shard
+      const response = await fetch(
+        `${TESTNET_URL}/shards/${destinationShard}/blockchain/transactions/${id}`
+      ).then((res) => res.json());
+
+      const executedTransaction = response?.transaction;
+
+      if (!executedTransaction) {
+        setStatus((prev) => ({
+          ...prev,
+          isLoading: true,
+          isSuccess: false,
+          isError: false,
+          isFinalized: false,
+        }));
+        return;
+      }
 
       let contractAddress = null;
-      if (data.executionStatus?.success) {
+      if (executedTransaction.executionSucceeded) {
         contractAddress = prefix + id.substring(id.length - 40);
       }
 
-      const isFullySuccessful = Boolean(
-        data.executionStatus?.success && data.executionStatus?.finalized
-      );
+      // Check if contract exists
+      if (contractAddress) {
+        const contractResponse = await fetch(
+          `${TESTNET_URL}/shards/${destinationShard}/blockchain/contracts/${contractAddress}`
+        ).then((res) => res.json());
 
-      if (isFullySuccessful && contractAddress) {
-        const exists = await verifyContractExists(
-          contractAddress,
-          initialShard
-        );
-        if (!exists) {
-          setStatus({
+        const contractExists = !!contractResponse?.serializedContract;
+        if (!contractExists) {
+          setStatus((prev) => ({
+            ...prev,
             isLoading: true,
             isSuccess: false,
             isError: false,
             isFinalized: false,
-            error: null,
-            data,
             contractAddress,
-          });
-          return data;
+          }));
+          return;
         }
       }
 
       setStatus({
         isLoading: false,
-        isSuccess: isFullySuccessful,
-        isError: data.executionStatus?.success === false,
-        isFinalized: data.executionStatus?.finalized || false,
-        error: null,
-        data,
+        isSuccess: executedTransaction.executionSucceeded,
+        isError: !executedTransaction.executionSucceeded,
+        isFinalized: true,
+        error: executedTransaction.executionSucceeded
+          ? null
+          : new Error("Transaction failed"),
+        data: {
+          identifier: id,
+          executionStatus: {
+            success: executedTransaction.executionSucceeded,
+            finalized: true,
+            events: executedTransaction.events,
+          },
+        },
         contractAddress,
       });
 
-      return data;
-    } catch (initialError) {
-      let lastError = initialError;
-      for (const shard of SHARD_PRIORITY) {
-        const shardId = `Shard${shard}`;
-
-        if (shardId === initialShard) continue;
-
-        try {
-          const data = await fetchTransactionFromShard(id, shardId);
-
-          let contractAddress = null;
-          if (data.executionStatus?.success) {
-            contractAddress = prefix + id.substring(id.length - 40);
-          }
-
-          const isFullySuccessful = Boolean(
-            data.executionStatus?.success && data.executionStatus?.finalized
-          );
-
-          if (isFullySuccessful && contractAddress) {
-            const exists = await verifyContractExists(contractAddress, shardId);
-            if (!exists) {
-              setStatus({
-                isLoading: true,
-                isSuccess: false,
-                isError: false,
-                isFinalized: false,
-                error: null,
-                data,
-                contractAddress,
-              });
-              return data;
+      // Handle events recursively
+      if (executedTransaction.events && executedTransaction.events.length > 0) {
+        await Promise.all(
+          executedTransaction.events.map(
+            async (event: { destinationShard: string; identifier: string }) => {
+              const eventResponse = await fetch(
+                `${TESTNET_URL}/shards/${event.destinationShard}/blockchain/transactions/${event.identifier}`
+              ).then((res) => res.json());
+              return eventResponse?.transaction;
             }
-          }
-
-          setStatus({
-            isLoading: false,
-            isSuccess: isFullySuccessful,
-            isError: data.executionStatus?.success === false,
-            isFinalized: data.executionStatus?.finalized || false,
-            error: null,
-            data,
-            contractAddress,
-          });
-
-          return data;
-        } catch (error) {
-          lastError = error;
-        }
+          )
+        );
       }
-
+    } catch (error) {
       setStatus((prev) => ({
         ...prev,
         isLoading: false,
         isError: true,
-        error:
-          lastError instanceof Error ? lastError : new Error(String(lastError)),
+        error: error instanceof Error ? error : new Error(String(error)),
       }));
     }
-  }, [id, initialShard, trait]);
+  }, [id, destinationShard, trait]);
 
   useEffect(() => {
     if (!id) return;
 
     let isMounted = true;
-    let retryCount = 0;
-    let intervalId: ReturnType<typeof setInterval>;
-
-    const calculateInterval = () => {
-      return Math.min(1000 + retryCount * 500, 5000);
-    };
+    let tryCount = 0;
+    let timeoutId: NodeJS.Timeout;
 
     const pollStatus = async () => {
-      try {
-        const data = await fetchStatus();
+      if (tryCount >= MAX_TRIES) {
+        setStatus((prev) => ({
+          ...prev,
+          isLoading: false,
+          isError: true,
+          error: new Error("Transaction timed out"),
+        }));
+        return;
+      }
 
-        if (
-          isMounted &&
-          data &&
-          ((data.executionStatus?.finalized &&
-            data.executionStatus?.success &&
-            status.contractAddress &&
-            (await verifyContractExists(
-              status.contractAddress,
-              initialShard
-            ))) ||
-            status.isError)
-        ) {
-          clearInterval(intervalId);
-        } else {
-          retryCount++;
-          clearInterval(intervalId);
-          const newInterval = calculateInterval();
-          intervalId = setInterval(pollStatus, newInterval);
+      try {
+        await fetchStatus();
+
+        if (!isMounted) return;
+
+        if (status.isFinalized || status.isError) {
+          return;
         }
+
+        tryCount++;
+        timeoutId = setTimeout(pollStatus, DELAY_BETWEEN_RETRIES);
       } catch (error) {
-        console.error("[Transaction] Error polling transaction status:", error);
-        retryCount++;
+        console.error("[Transaction] Error polling status:", error);
+        tryCount++;
+        if (isMounted) {
+          timeoutId = setTimeout(pollStatus, DELAY_BETWEEN_RETRIES);
+        }
       }
     };
 
     pollStatus();
-    intervalId = setInterval(pollStatus, 1000);
 
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
+      clearTimeout(timeoutId);
     };
-  }, [id, fetchStatus, status.isError, status.contractAddress, initialShard]);
+  }, [id, fetchStatus, status.isFinalized, status.isError]);
 
   return status;
 }

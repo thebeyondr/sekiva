@@ -300,7 +300,6 @@ const MembersTab = ({
         <TransactionDialog
           action="action"
           id={txnDialog.id}
-          destinationShard={txnDialog.destinationShard}
           trait="collective"
           onSuccess={() => setTxnDialog(null)}
           onError={() => setTxnDialog(null)}

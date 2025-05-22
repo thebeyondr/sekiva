@@ -43,6 +43,29 @@ export function WelcomeDialog() {
               </Link>
             </p>
 
+            <div className="w-full bg-blue-50 p-4 rounded-md border border-blue-200">
+              <div className="flex items-start gap-3">
+                <div>
+                  <h4 className="font-medium text-blue-900">
+                    🔑 Required Extension
+                  </h4>
+                  <p className="text-sm text-blue-800 mt-1">
+                    You'll need the{" "}
+                    <a
+                      href="https://chromewebstore.google.com/detail/parti-wallet/gjkdbeaiifkpoencioahhcilildpjhgh"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      Parti Wallet extension
+                    </a>{" "}
+                    for Chrome or Brave browsers to perform on-chain
+                    transactions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="w-full bg-amber-50 p-4 rounded-md border border-amber-200">
               <div className="flex items-start gap-3">
                 <div>

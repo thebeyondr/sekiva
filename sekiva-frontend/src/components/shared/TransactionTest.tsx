@@ -41,7 +41,6 @@ export default function TransactionTest() {
         <TransactionDialog
           action="deploy"
           id={txId}
-          destinationShard={txShard}
           trait="collective"
           returnPath="/collectives"
           onSuccess={(contractAddress) => {

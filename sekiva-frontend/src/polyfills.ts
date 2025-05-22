@@ -4,7 +4,6 @@ import "stream-browserify";
 
 // Make sure global is defined
 if (typeof window !== "undefined") {
-  // @ts-expect-error - window.global doesn't exist in Window interface
   window.global = window;
 }
 

@@ -1,5 +1,5 @@
 import { ExternalLinkIcon } from "lucide-react";
-import { OrganizationState } from "@/contracts/organization/generated";
+import { OrganizationState } from "@/contracts/OrganizationGenerated";
 
 interface AboutTabProps {
   organization: OrganizationState;

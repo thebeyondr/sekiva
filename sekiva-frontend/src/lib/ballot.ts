@@ -2,7 +2,6 @@ import {
   BallotState,
   castVote,
   deserializeState,
-  setVoteActive,
 } from "@/contracts/BallotGenerated";
 import { ContractError } from "@/types/contract";
 import {
@@ -62,7 +61,6 @@ export const getBallotState = async (id: BallotId): Promise<Ballot> => {
 export interface BallotClient {
   getState: () => Promise<Ballot>;
   castVote: (choice: number) => Promise<SentTransaction>;
-  setBallotActive: () => Promise<SentTransaction>;
 }
 
 export const createBallotClient = (
@@ -86,23 +84,6 @@ export const createBallotClient = (
       const err = error as ContractError;
       throw new Error(
         `Failed to cast vote: ${err?.message || "Unknown error"}`
-      );
-    }
-  },
-  setBallotActive: async () => {
-    if (!transactionClient) {
-      throw new Error("No transaction client");
-    }
-    try {
-      const rpc = setVoteActive();
-      return transactionClient.signAndSend(
-        { address: contractAddress, rpc },
-        50_000
-      );
-    } catch (error: unknown) {
-      const err = error as ContractError;
-      throw new Error(
-        `Failed to set ballot active: ${err?.message || "Unknown error"}`
       );
     }
   },

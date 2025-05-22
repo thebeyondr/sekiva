@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
-import { ClipboardCopy, Check, Wallet, ChevronUp } from "lucide-react";
+import { ClipboardCopy, Check, Wallet } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,

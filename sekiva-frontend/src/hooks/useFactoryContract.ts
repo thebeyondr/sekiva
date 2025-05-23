@@ -9,8 +9,9 @@ import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-// const FACTORY_ADDRESS = "0201a1e0d7b15ddaaa08d5e9c7cb0a1535cc2ab7b4";
-const FACTORY_ADDRESS = "02c4f69673a0e991815c7d41f9cb04803476a1e29c";
+// 02c4f69673a0e991815c7d41f9cb04803476a1e29c
+// 02768301908ff0d35e53ef5c44b000d509f08e4e09
+const FACTORY_ADDRESS = "02768301908ff0d35e53ef5c44b000d509f08e4e09";
 
 export interface OrganizationInit {
   name: string;

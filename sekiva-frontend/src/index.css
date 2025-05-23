@@ -1,10 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --font-sans: "Geist", "Inter", "Manrope", sans-serif;
+  --font-mono: "Geist Mono", "Consolas", "Menlo", "Monaco", "monospace";
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -124,6 +126,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Geist", "Inter", "Manrope", sans-serif;
+    font-family: var(--font-sans);
   }
 }

@@ -44,8 +44,13 @@ const MembersTab = ({
   const [canManageMembers, setCanManageMembers] = useState(false);
   const [canManageAdmins, setCanManageAdmins] = useState(false);
 
-  const { addMember, removeMember, promoteMember, demoteMember } =
-    useOrganizationContract();
+  const {
+    addMember,
+    removeMember,
+    promoteMember,
+    demoteMember,
+    requiresWalletConnection,
+  } = useOrganizationContract();
 
   // Check permissions for member management
   useEffect(() => {
@@ -82,10 +87,10 @@ const MembersTab = ({
   const handleAddMember = async () => {
     if (!orgId || !addAddress) return;
     const res = await addMember(orgId, addAddress);
-    if (res?.transactionPointer) {
+    if (res) {
       setTxnDialog({
-        id: res.transactionPointer.identifier,
-        destinationShard: res.transactionPointer.destinationShardId,
+        id: res.identifier,
+        destinationShard: res.destinationShardId,
       });
     }
     setShowAddDialog(false);
@@ -94,10 +99,10 @@ const MembersTab = ({
   const handleRemoveMember = async (address: string) => {
     if (!orgId) return;
     const res = await removeMember(orgId, address);
-    if (res?.transactionPointer) {
+    if (res) {
       setTxnDialog({
-        id: res.transactionPointer.identifier,
-        destinationShard: res.transactionPointer.destinationShardId,
+        id: res.identifier,
+        destinationShard: res.destinationShardId,
       });
     }
     setShowRemoveDialog(null);
@@ -105,10 +110,10 @@ const MembersTab = ({
   const handlePromoteMember = async (address: string) => {
     if (!orgId) return;
     const res = await promoteMember(orgId, address);
-    if (res?.transactionPointer) {
+    if (res) {
       setTxnDialog({
-        id: res.transactionPointer.identifier,
-        destinationShard: res.transactionPointer.destinationShardId,
+        id: res.identifier,
+        destinationShard: res.destinationShardId,
       });
     }
     setShowPromoteDialog(null);
@@ -116,10 +121,10 @@ const MembersTab = ({
   const handleDemoteMember = async (address: string) => {
     if (!orgId) return;
     const res = await demoteMember(orgId, address);
-    if (res?.transactionPointer) {
+    if (res) {
       setTxnDialog({
-        id: res.transactionPointer.identifier,
-        destinationShard: res.transactionPointer.destinationShardId,
+        id: res.identifier,
+        destinationShard: res.destinationShardId,
       });
     }
     setShowDemoteDialog(null);
@@ -132,7 +137,22 @@ const MembersTab = ({
           {members.length} member{members.length === 1 ? "" : "s"}
         </div>
         {canManageMembers && (
-          <Button onClick={() => setShowAddDialog(true)}>Add Member</Button>
+          <>
+            {requiresWalletConnection && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                <p className="text-amber-800">
+                  Please connect your wallet to manage members. You'll need to
+                  sign transactions.
+                </p>
+              </div>
+            )}
+            <Button
+              onClick={() => setShowAddDialog(true)}
+              disabled={requiresWalletConnection}
+            >
+              Add Member
+            </Button>
+          </>
         )}
       </div>
       {members.length > 0 ? (
@@ -237,6 +257,14 @@ const MembersTab = ({
           <DialogHeader>
             <DialogTitle>Add Member</DialogTitle>
           </DialogHeader>
+          {requiresWalletConnection && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-amber-800">
+                Please connect your wallet to add members. You'll need to sign a
+                transaction.
+              </p>
+            </div>
+          )}
           <Input
             type="text"
             value={addAddress}
@@ -245,7 +273,10 @@ const MembersTab = ({
             className="shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90"
           />
           <DialogFooter>
-            <Button onClick={handleAddMember} disabled={!addAddress}>
+            <Button
+              onClick={handleAddMember}
+              disabled={!addAddress || requiresWalletConnection}
+            >
               Add
             </Button>
             <DialogClose asChild>
@@ -263,9 +294,20 @@ const MembersTab = ({
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
           </DialogHeader>
+          {requiresWalletConnection && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-amber-800">
+                Please connect your wallet to remove members. You'll need to
+                sign a transaction.
+              </p>
+            </div>
+          )}
           <p>Are you sure you want to remove this member?</p>
           <DialogFooter>
-            <Button onClick={() => handleRemoveMember(showRemoveDialog!)}>
+            <Button
+              onClick={() => handleRemoveMember(showRemoveDialog!)}
+              disabled={requiresWalletConnection}
+            >
               Remove
             </Button>
             <DialogClose asChild>
@@ -283,9 +325,20 @@ const MembersTab = ({
           <DialogHeader>
             <DialogTitle>Promote to Admin</DialogTitle>
           </DialogHeader>
+          {requiresWalletConnection && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-amber-800">
+                Please connect your wallet to promote members. You'll need to
+                sign a transaction.
+              </p>
+            </div>
+          )}
           <p>Promote this member to administrator?</p>
           <DialogFooter>
-            <Button onClick={() => handlePromoteMember(showPromoteDialog!)}>
+            <Button
+              onClick={() => handlePromoteMember(showPromoteDialog!)}
+              disabled={requiresWalletConnection}
+            >
               Promote
             </Button>
             <DialogClose asChild>
@@ -303,9 +356,20 @@ const MembersTab = ({
           <DialogHeader>
             <DialogTitle>Demote Admin</DialogTitle>
           </DialogHeader>
+          {requiresWalletConnection && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-amber-800">
+                Please connect your wallet to demote administrators. You'll need
+                to sign a transaction.
+              </p>
+            </div>
+          )}
           <p>Demote this administrator to regular member?</p>
           <DialogFooter>
-            <Button onClick={() => handleDemoteMember(showDemoteDialog!)}>
+            <Button
+              onClick={() => handleDemoteMember(showDemoteDialog!)}
+              disabled={requiresWalletConnection}
+            >
               Demote
             </Button>
             <DialogClose asChild>

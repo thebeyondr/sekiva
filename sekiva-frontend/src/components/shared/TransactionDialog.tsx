@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,19 +33,42 @@ export function TransactionDialog({
   const status = useTransactionStatus(id, trait);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  useEffect(() => {
-    if (status.isSuccess && status.isFinalized && status.contractAddress) {
-      const timer = setTimeout(() => {
-        setCanNavigate(true);
-        if (onSuccess) {
-          onSuccess(status.contractAddress!);
-        }
-        setShowConfetti(true);
-      }, 10000); // 10 seconds
-
-      return () => clearTimeout(timer);
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    if (action === "action" && status.isSuccess) {
+      window.location.reload();
     }
-  }, [status.isSuccess, status.isFinalized, status.contractAddress, onSuccess]);
+  }, [action, status.isSuccess, setOpen]);
+
+  useEffect(() => {
+    if (status.isSuccess && status.isFinalized) {
+      if (action === "action") {
+        const timer = setTimeout(() => {
+          if (onSuccess) {
+            onSuccess(status.contractAddress || "");
+          }
+          handleClose();
+        }, 2000);
+        return () => clearTimeout(timer);
+      } else if (status.contractAddress) {
+        const timer = setTimeout(() => {
+          setCanNavigate(true);
+          if (onSuccess) {
+            onSuccess(status.contractAddress!);
+          }
+          setShowConfetti(true);
+        }, 10000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [
+    status.isSuccess,
+    status.isFinalized,
+    status.contractAddress,
+    onSuccess,
+    action,
+    handleClose,
+  ]);
 
   useEffect(() => {
     if (status.isError && status.error && onError) {
@@ -68,14 +91,6 @@ export function TransactionDialog({
     }
 
     return targetPath;
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-
-    if (action === "action" && status.isSuccess) {
-      window.location.reload();
-    }
   };
 
   const handleViewEntity = () => {

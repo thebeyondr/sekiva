@@ -57,7 +57,7 @@ export function useCollectives() {
           id: orgIds[idx],
           name: org.name || "Unnamed Collective",
           description: org.description || "",
-          memberCount: org.members.length + 1, // +1 for owner
+          memberCount: org.members.length,
           bannerImage: org.bannerImage,
           profileImage: org.profileImage,
         })

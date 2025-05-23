@@ -43,7 +43,10 @@ const CollectiveCard = ({ collective }: { collective: CollectiveCardData }) => (
       </CardContent>
       <CardFooter className="pt-4 text-sm text-gray-500 border-t border-gray-100">
         <div className="flex items-center justify-between w-full">
-          <span>{collective.memberCount} members</span>
+          <span>
+            {collective.memberCount} member
+            {collective.memberCount === 1 ? "" : "s"}
+          </span>
           <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">{`~${collective.id.substring(0, 4)}...${collective.id.substring(
             collective.id.length - 5
           )}`}</span>

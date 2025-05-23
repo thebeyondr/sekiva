@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ArrowDownIcon, ArrowUpIcon, Signpost } from "lucide-react";
 
 interface MembersTabProps {
   members: BlockchainAddress[];
@@ -126,14 +127,14 @@ const MembersTab = ({
 
   return (
     <div className="py-4">
-      <div className="px-2 py-1 bg-gray-100 rounded-md text-sm mb-6 w-fit">
-        {members.length} member{members.length === 1 ? "" : "s"}
+      <div className="flex items-center justify-between mb-6">
+        <div className="px-2 py-1 bg-gray-100 rounded-md text-sm w-fit">
+          {members.length} member{members.length === 1 ? "" : "s"}
+        </div>
+        {canManageMembers && (
+          <Button onClick={() => setShowAddDialog(true)}>Add Member</Button>
+        )}
       </div>
-      {canManageMembers && (
-        <Button onClick={() => setShowAddDialog(true)} className="mb-4">
-          Add Member
-        </Button>
-      )}
       {members.length > 0 ? (
         <div className="space-y-3">
           {members.map((member, index) => (
@@ -158,9 +159,21 @@ const MembersTab = ({
                       ⚙️
                     </span>
                   )}
-                <span className="font-mono text-sm truncate max-w-[260px] sm:max-w-md">
-                  {member.asString()}
-                </span>
+                {members.length > 0 &&
+                  !administrators.some(
+                    (a) => a.asString() === member.asString()
+                  ) &&
+                  owner.asString() !== member.asString() && (
+                    <span
+                      className="text-lg text-gray-600 -mt-1"
+                      title="Member"
+                    >
+                      👤
+                    </span>
+                  )}
+                <div className="w-fit inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono xl:text-sm font-medium bg-gray-100 text-gray-600">
+                  ID ⁘ {member.asString()}
+                </div>
               </div>
               {account && member.asString() !== account.getAddress() && (
                 <div className="flex gap-2">
@@ -172,8 +185,10 @@ const MembersTab = ({
                       <Button
                         size="sm"
                         variant="outline"
+                        className="shadow-none"
                         onClick={() => setShowPromoteDialog(member.asString())}
                       >
+                        <ArrowUpIcon className="w-4 h-4" />
                         Promote
                       </Button>
                     )}
@@ -186,8 +201,10 @@ const MembersTab = ({
                       <Button
                         size="sm"
                         variant="outline"
+                        className="shadow-none"
                         onClick={() => setShowDemoteDialog(member.asString())}
                       >
+                        <ArrowDownIcon className="w-4 h-4" />
                         Demote
                       </Button>
                     )}
@@ -197,8 +214,10 @@ const MembersTab = ({
                       <Button
                         size="sm"
                         variant="destructive"
+                        className="text-red-500 bg-red-100 hover:text-white shadow-none"
                         onClick={() => setShowRemoveDialog(member.asString())}
                       >
+                        <Signpost className="w-4 h-4" />
                         Remove
                       </Button>
                     )}

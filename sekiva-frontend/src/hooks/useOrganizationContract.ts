@@ -11,7 +11,6 @@ import {
   addMembers,
 } from "@/contracts/OrganizationGenerated";
 import { BlockchainAddress, BN } from "@partisiablockchain/abi-client";
-import { BlockchainTransactionClient } from "@partisiablockchain/blockchain-api-transaction-client";
 import {
   useMutation,
   useQuery,
@@ -86,6 +85,7 @@ export const getOrganizationState = async (
 export function useOrganizationContract() {
   const { account } = useAuth();
   const queryClient = useQueryClient();
+  const { sendTransaction, requiresWalletConnection } = useTransaction();
 
   const addMemberMutation = useMutation({
     mutationFn: async ({
@@ -96,13 +96,13 @@ export function useOrganizationContract() {
       memberAddress: string;
     }) => {
       if (!account) throw new Error("Wallet not connected");
-      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
       const rpc = addMember(BlockchainAddress.fromString(memberAddress));
-      const txn = await txClient.signAndSend(
-        { address: orgAddress, rpc },
-        100_000
-      );
-      return txn;
+      return sendTransaction({
+        type: "regular",
+        address: orgAddress,
+        rpc,
+        gasCost: 100_000,
+      });
     },
     onSuccess: (_, { orgAddress }) => {
       queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
@@ -118,13 +118,13 @@ export function useOrganizationContract() {
       memberAddress: string;
     }) => {
       if (!account) throw new Error("Wallet not connected");
-      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
       const rpc = removeMember(BlockchainAddress.fromString(memberAddress));
-      const txn = await txClient.signAndSend(
-        { address: orgAddress, rpc },
-        100_000
-      );
-      return txn;
+      return sendTransaction({
+        type: "regular",
+        address: orgAddress,
+        rpc,
+        gasCost: 100_000,
+      });
     },
     onSuccess: (_, { orgAddress }) => {
       queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
@@ -140,13 +140,13 @@ export function useOrganizationContract() {
       memberAddress: string;
     }) => {
       if (!account) throw new Error("Wallet not connected");
-      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
       const rpc = addAdministrator(BlockchainAddress.fromString(memberAddress));
-      const txn = await txClient.signAndSend(
-        { address: orgAddress, rpc },
-        100_000
-      );
-      return txn;
+      return sendTransaction({
+        type: "regular",
+        address: orgAddress,
+        rpc,
+        gasCost: 100_000,
+      });
     },
     onSuccess: (_, { orgAddress }) => {
       queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
@@ -162,15 +162,15 @@ export function useOrganizationContract() {
       memberAddress: string;
     }) => {
       if (!account) throw new Error("Wallet not connected");
-      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
       const rpc = removeAdministrator(
         BlockchainAddress.fromString(memberAddress)
       );
-      const txn = await txClient.signAndSend(
-        { address: orgAddress, rpc },
-        100_000
-      );
-      return txn;
+      return sendTransaction({
+        type: "regular",
+        address: orgAddress,
+        rpc,
+        gasCost: 100_000,
+      });
     },
     onSuccess: (_, { orgAddress }) => {
       queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
@@ -186,16 +186,16 @@ export function useOrganizationContract() {
       memberAddresses: string[];
     }) => {
       if (!account) throw new Error("Wallet not connected");
-      const txClient = BlockchainTransactionClient.create(TESTNET_URL, account);
       const addresses = memberAddresses.map((addr) =>
         BlockchainAddress.fromString(addr)
       );
       const rpc = addMembers(addresses);
-      const txn = await txClient.signAndSend(
-        { address: orgAddress, rpc },
-        100_000
-      );
-      return txn;
+      return sendTransaction({
+        type: "regular",
+        address: orgAddress,
+        rpc,
+        gasCost: 100_000,
+      });
     },
     onSuccess: (_, { orgAddress }) => {
       queryClient.invalidateQueries({ queryKey: ["organization", orgAddress] });
@@ -215,6 +215,7 @@ export function useOrganizationContract() {
         demoteMemberMutation.mutateAsync({ orgAddress, memberAddress }),
       addMembers: (orgAddress: string, memberAddresses: string[]) =>
         addMembersMutation.mutateAsync({ orgAddress, memberAddresses }),
+      requiresWalletConnection,
     }),
     [
       addMemberMutation,
@@ -222,6 +223,7 @@ export function useOrganizationContract() {
       promoteMemberMutation,
       demoteMemberMutation,
       addMembersMutation,
+      requiresWalletConnection,
     ]
   );
 }
@@ -229,7 +231,8 @@ export function useOrganizationContract() {
 export function useDeployBallot() {
   const { account } = useAuth();
   const queryClient = useQueryClient();
-  const { sendTransaction, transactionPointer } = useTransaction();
+  const { sendTransaction, transactionPointer, requiresWalletConnection } =
+    useTransaction();
 
   const mutation = useMutation({
     mutationFn: async (params: {
@@ -271,6 +274,7 @@ export function useDeployBallot() {
   return {
     ...mutation,
     transactionPointer,
+    requiresWalletConnection,
   };
 }
 

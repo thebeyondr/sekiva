@@ -1,17 +1,13 @@
-import { useAuth } from "@/auth/useAuth";
-import { CLIENT, TESTNET_URL } from "@/partisia-config";
 import {
   deployOrganization,
   deserializeState,
   SekivaFactoryState,
 } from "@/contracts/SekivaFactoryGenerated";
+import { useTransaction } from "@/hooks/useTransaction";
+import { CLIENT } from "@/partisia-config";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
-import {
-  BlockchainTransactionClient,
-  SentTransaction,
-} from "@partisiablockchain/blockchain-api-transaction-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 
 // const FACTORY_ADDRESS = "0201a1e0d7b15ddaaa08d5e9c7cb0a1535cc2ab7b4";
 const FACTORY_ADDRESS = "02c4f69673a0e991815c7d41f9cb04803476a1e29c";
@@ -98,61 +94,35 @@ export interface TransactionPointer {
 }
 
 export function useDeployOrganization() {
-  const { account } = useAuth();
+  const { sendTransaction, requiresWalletConnection } = useTransaction();
   const queryClient = useQueryClient();
-  const [transactionPointer, setTransactionPointer] =
-    useState<TransactionPointer | null>(null);
 
   const mutation = useMutation({
-    mutationFn: async (orgInfo: OrganizationInit) => {
-      if (!account) throw new Error("Wallet not connected");
-      console.log("Deploying organization with account", account.getAddress());
-      try {
-        const txClient = BlockchainTransactionClient.create(
-          TESTNET_URL,
-          account
-        );
-        const rpc = deployOrganization(
-          orgInfo.name,
-          orgInfo.description,
-          orgInfo.profileImage,
-          orgInfo.bannerImage,
-          orgInfo.xUrl,
-          orgInfo.discordUrl,
-          orgInfo.websiteUrl,
-          orgInfo.administrator
-        );
-        const txn: SentTransaction = await txClient.signAndSend(
-          { address: FACTORY_ADDRESS, rpc },
-          10_000_000
-        );
-        console.log("Organization deployed with txn", txn);
-
-        // Extract transaction pointer info
-        if (txn.transactionPointer) {
-          const pointer = {
-            identifier: txn.transactionPointer.identifier,
-            destinationShardId: txn.transactionPointer.destinationShardId,
-          };
-          setTransactionPointer(pointer);
-        }
-
-        return txn;
-      } catch (err) {
-        throw new Error(
-          "Error deploying organization: " +
-            (err instanceof Error ? err.message : String(err))
-        );
-      }
+    mutationFn: async (init: OrganizationInit) => {
+      const rpc = deployOrganization(
+        init.name,
+        init.description,
+        init.profileImage,
+        init.bannerImage,
+        init.xUrl,
+        init.discordUrl,
+        init.websiteUrl,
+        init.administrator
+      );
+      return sendTransaction({
+        type: "regular",
+        address: FACTORY_ADDRESS,
+        rpc,
+        gasCost: 100_000,
+      });
     },
     onSuccess: () => {
-      // Invalidate and refetch organizations list
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
     },
   });
 
   return {
     ...mutation,
-    transactionPointer,
+    requiresWalletConnection,
   };
 }

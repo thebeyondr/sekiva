@@ -169,8 +169,9 @@ export function useBallotContract() {
 export function useCastVote() {
   const ballotContract = useBallotContract();
   const queryClient = useQueryClient();
+  const { requiresWalletConnection } = useTransaction();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async ({
       ballotAddress,
       choice,
@@ -187,13 +188,19 @@ export function useCastVote() {
       });
     },
   });
+
+  return {
+    ...mutation,
+    requiresWalletConnection,
+  };
 }
 
 export function useComputeTally() {
   const ballotContract = useBallotContract();
   const queryClient = useQueryClient();
+  const { requiresWalletConnection } = useTransaction();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (ballotAddress: string) => {
       const txn = await ballotContract.computeTally(ballotAddress);
       return txn;
@@ -202,6 +209,11 @@ export function useComputeTally() {
       queryClient.invalidateQueries({ queryKey: ["ballot", ballotAddress] });
     },
   });
+
+  return {
+    ...mutation,
+    requiresWalletConnection,
+  };
 }
 
 export function useCancelBallot() {

@@ -43,7 +43,11 @@ function NewBallot() {
   const [txDetails, setTxDetails] = useState<TransactionPointer | null>(null);
   const { account } = useAuth();
   const { organizationId: collectiveId } = useParams();
-  const { mutate: deployBallot, isPending: isDeploying } = useDeployBallot();
+  const {
+    mutate: deployBallot,
+    isPending: isDeploying,
+    requiresWalletConnection,
+  } = useDeployBallot();
   const { getState: getOrganizationState } = useOrganizationContract();
 
   const { data: organizationState } = useQuery({
@@ -236,6 +240,14 @@ function NewBallot() {
                     }}
                     className="flex flex-col gap-4"
                   >
+                    {requiresWalletConnection && (
+                      <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                        <p className="text-amber-800">
+                          Please connect your wallet to create a ballot. You'll
+                          need to sign a transaction.
+                        </p>
+                      </div>
+                    )}
                     <form.Field
                       name="organization"
                       validators={{
@@ -517,7 +529,7 @@ function NewBallot() {
                             disabled={
                               !canSubmit ||
                               isSubmitting ||
-                              !account ||
+                              requiresWalletConnection ||
                               isDeploying
                             }
                           >

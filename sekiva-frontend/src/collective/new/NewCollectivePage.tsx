@@ -16,28 +16,16 @@ import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
 const NewCollectivePage = () => {
-  const { account, isConnected, connect, disconnect } = useAuth();
+  const { account } = useAuth();
   const {
     mutate: deployOrganization,
     isPending: isDeploying,
-    transactionPointer,
+    requiresWalletConnection,
   } = useDeployOrganization();
   const [txDetails, setTxDetails] = useState(
     null as null | { identifier: string; destinationShardId: string }
   );
   const [error, setError] = useState<string | null>(null);
-
-  const ensureWalletConnection = async () => {
-    if (isConnected && account) return true;
-    try {
-      if (isConnected) await disconnect();
-      await connect();
-      return true;
-    } catch {
-      setError("Please connect your wallet using the Connect button");
-      return false;
-    }
-  };
 
   const form = useForm({
     defaultValues: {
@@ -52,11 +40,12 @@ const NewCollectivePage = () => {
     onSubmit: async ({ value }) => {
       setError(null);
       setTxDetails(null);
-      const ok = await ensureWalletConnection();
-      if (!ok || !account) {
+
+      if (!account) {
         setError("Please connect your wallet to create a collective");
         return;
       }
+
       const orgInfo: OrganizationInit = {
         name: value.name,
         description: value.description,
@@ -67,16 +56,13 @@ const NewCollectivePage = () => {
         websiteUrl: value.website ? `https://${value.website}` : "",
         administrator: BlockchainAddress.fromString(account.getAddress()),
       };
+
       deployOrganization(orgInfo, {
-        onSuccess: (data) => {
-          if (transactionPointer) {
-            setTxDetails(transactionPointer);
-          } else if (data.transactionPointer) {
-            setTxDetails({
-              identifier: data.transactionPointer.identifier,
-              destinationShardId: data.transactionPointer.destinationShardId,
-            });
-          }
+        onSuccess: (pointer) => {
+          setTxDetails({
+            identifier: pointer.identifier,
+            destinationShardId: pointer.destinationShardId,
+          });
         },
         onError: (err) => {
           setError(err instanceof Error ? err.message : String(err));
@@ -114,6 +100,16 @@ const NewCollectivePage = () => {
               <h1 className="text-2xl xl:text-4xl font-normal tracking-tighter py-3">
                 Create a new collective
               </h1>
+
+              {requiresWalletConnection && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-amber-800">
+                    Please connect your wallet to create a collective. You'll
+                    need to sign a transaction.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col gap-4">
                 <form.Field
                   name="name"
@@ -203,7 +199,7 @@ const NewCollectivePage = () => {
               <Button
                 type="submit"
                 className="mt-6 w-full"
-                disabled={isDeploying}
+                disabled={isDeploying || requiresWalletConnection}
               >
                 {isDeploying ? "Creating..." : "Create Collective"}
               </Button>

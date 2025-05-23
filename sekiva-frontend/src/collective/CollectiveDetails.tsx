@@ -174,7 +174,7 @@ const OrganizationDetail = () => {
           </div>
 
           {/* Contained Section for Tabs */}
-          <div className="container mx-auto max-w-3xl px-6">
+          <div className="container mx-auto max-w-3xl px-6 pb-12">
             <div className="bg-white rounded-lg border-2 border-black overflow-hidden">
               <Tabs
                 defaultValue={activeTab}
@@ -205,6 +205,7 @@ const OrganizationDetail = () => {
                   <BallotsTab
                     organizationId={organizationId || ""}
                     ballotStates={ballotStatesMap}
+                    hasThreeOrMoreMembers={organization.members.length >= 3}
                     loading={loading}
                     error={error || null}
                   />

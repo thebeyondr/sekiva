@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   TransactionPointer,
   useDeployBallot,
+  useOrganizationContract,
 } from "@/hooks/useOrganizationContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useForm } from "@tanstack/react-form";
@@ -23,6 +24,7 @@ import BN from "bn.js";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 type DurationOption = keyof typeof DURATION_OPTIONS;
 
@@ -42,6 +44,12 @@ function NewBallot() {
   const { account } = useAuth();
   const { organizationId: collectiveId } = useParams();
   const { mutate: deployBallot, isPending: isDeploying } = useDeployBallot();
+  const { getState: getOrganizationState } = useOrganizationContract();
+
+  const { data: organizationState } = useQuery({
+    queryKey: ["organization", collectiveId],
+    queryFn: () => getOrganizationState(collectiveId!),
+  });
 
   const [testBallotData, setTestBallotData] = useState<{
     title: string;
@@ -132,6 +140,31 @@ function NewBallot() {
     }
   }, [collectiveId]);
 
+  if (!organizationState) return <div>Loading...</div>;
+
+  const hasThreeOrMoreMembers = organizationState.members.length >= 3;
+
+  if (!hasThreeOrMoreMembers) {
+    return (
+      <div className="min-h-screen bg-sk-yellow-saturated">
+        <div className="container mx-auto max-w-[1500px]">
+          <NavBar />
+        </div>
+        <div className="container mx-auto max-w-3xl py-10">
+          <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
+            <p>
+              You need at least 3 members to create a ballot. Add more in
+              Members tab.
+            </p>
+            <Link to={`/collectives/${collectiveId}`}>
+              <Button>Back to Collective</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-sk-yellow-saturated">
       <div className="container mx-auto max-w-[1500px]">
@@ -150,6 +183,7 @@ function NewBallot() {
             </Link>
           </section>
         )}
+        {organizationState && <p>{organizationState.members.length} members</p>}
         <section className="container mx-auto max-w-3xl py-10">
           <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
             {process.env.NODE_ENV === "development" && account && (
@@ -195,7 +229,6 @@ function NewBallot() {
                   <h1 className="text-2xl xl:text-4xl font-normal tracking-tighter py-3">
                     Create new ballot.
                   </h1>
-
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -223,7 +256,7 @@ function NewBallot() {
                             onBlur={field.handleBlur}
                             placeholder="Paste organization address"
                             readOnly={!!collectiveId}
-                            className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 ${
+                            className={`shadow-none border-black/60 rounded-sm focus-visible:ring-2 focus-visible:ring-black/90 text-stone-600 ${
                               field.state.meta.errors.length > 0
                                 ? "border-red-500"
                                 : collectiveId
@@ -240,7 +273,6 @@ function NewBallot() {
                         </div>
                       )}
                     </form.Field>
-
                     {/* Title Field */}
                     <form.Field
                       name="title"
@@ -274,7 +306,6 @@ function NewBallot() {
                         </div>
                       )}
                     </form.Field>
-
                     {/* Description Field */}
                     <form.Field
                       name="description"
@@ -308,7 +339,6 @@ function NewBallot() {
                         </div>
                       )}
                     </form.Field>
-
                     {/* Options Section */}
                     <div>
                       <Label className="text-sm uppercase font-medium tracking-wide text-stone-700 mb-2 block">
@@ -391,7 +421,6 @@ function NewBallot() {
                         }}
                       </form.Field>
                     </div>
-
                     {/* Duration Field */}
                     <form.Field
                       name="duration"
@@ -444,13 +473,17 @@ function NewBallot() {
                         </div>
                       )}
                     </form.Field>
-
+                    <p className="text-base text-slate-700 bg-blue-100 border-[1.5px] border-blue-300 p-3 rounded-sm">
+                      Ballots are private and secure. Only members can vote, and
+                      votes are completely anonymous - no one can see who voted
+                      for what. Each member can vote once, and results are only
+                      tallied when at least 3 votes are cast.
+                    </p>
                     {!account && (
-                      <div className="mt-4 p-3 bg-red-50 text-red-500 border border-red-200 rounded-sm">
-                        You need to connect your wallet first
+                      <div className="mt-1 p-3 bg-red-50 text-red-500 border border-red-200 rounded-sm">
+                        🫢 You need to connect your wallet first
                       </div>
                     )}
-
                     <form.Subscribe
                       selector={(formState) => ({
                         errors: formState.errors,

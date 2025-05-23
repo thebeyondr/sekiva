@@ -26,25 +26,48 @@ export class SessionManager {
   private static WALLET_TYPE_KEY = "walletType";
   private static PARTI_WALLET_TYPE = "parti";
 
+  // Additional localStorage keys for cross-session persistence
+  private static PERSISTENT_WALLET_KEY = "sekiva_persistent_wallet";
+  private static PERSISTENT_WALLET_TYPE_KEY = "sekiva_persistent_wallet_type";
+
   /**
    * Check for active Partisia browser wallet connection
+   * First checks sessionStorage (current session), then localStorage (persistent)
    *
    * @returns The wallet session if available, null otherwise
    */
   static getPartiWalletSession(): PartisiaWalletSession | null {
     try {
-      const walletType = sessionStorage.getItem(this.WALLET_TYPE_KEY);
-      const walletData = sessionStorage.getItem(this.PARTI_WALLET_KEY);
+      // First, try sessionStorage (current session)
+      let walletType = sessionStorage.getItem(this.WALLET_TYPE_KEY);
+      let walletData = sessionStorage.getItem(this.PARTI_WALLET_KEY);
 
-      if (walletType !== this.PARTI_WALLET_TYPE || !walletData) {
-        return null;
+      if (walletType === this.PARTI_WALLET_TYPE && walletData) {
+        const connection = JSON.parse(walletData);
+        return {
+          walletType: this.PARTI_WALLET_TYPE,
+          connection,
+        };
       }
 
-      const connection = JSON.parse(walletData);
-      return {
-        walletType: this.PARTI_WALLET_TYPE,
-        connection,
-      };
+      // Fallback to localStorage (persistent across sessions)
+      walletType = localStorage.getItem(this.PERSISTENT_WALLET_TYPE_KEY);
+      walletData = localStorage.getItem(this.PERSISTENT_WALLET_KEY);
+
+      if (walletType === this.PARTI_WALLET_TYPE && walletData) {
+        const connection = JSON.parse(walletData);
+
+        // Restore to sessionStorage for SDK compatibility
+        sessionStorage.setItem(this.PARTI_WALLET_KEY, walletData);
+        sessionStorage.setItem(this.WALLET_TYPE_KEY, walletType);
+
+        return {
+          walletType: this.PARTI_WALLET_TYPE,
+          connection,
+        };
+      }
+
+      return null;
     } catch (error) {
       console.error("Error retrieving Partisia wallet session:", error);
       return null;
@@ -54,6 +77,7 @@ export class SessionManager {
   /**
    * Save wallet connection information to sessionStorage from SDK
    * This saves the complete connection object from the SDK
+   * Also saves to localStorage for persistence across browser sessions
    *
    * @param sdkConnection Complete SDK connection object
    */
@@ -72,12 +96,18 @@ export class SessionManager {
       `Saving wallet connection from SDK for address: ${sdkConnection.account.address}`
     );
 
+    const connectionString = JSON.stringify(sdkConnection);
+
     // Save to sessionStorage with the same keys used by Partisia Wallet
-    sessionStorage.setItem(
-      this.PARTI_WALLET_KEY,
-      JSON.stringify(sdkConnection)
-    );
+    sessionStorage.setItem(this.PARTI_WALLET_KEY, connectionString);
     sessionStorage.setItem(this.WALLET_TYPE_KEY, this.PARTI_WALLET_TYPE);
+
+    // Also save to localStorage for persistence across browser sessions
+    localStorage.setItem(this.PERSISTENT_WALLET_KEY, connectionString);
+    localStorage.setItem(
+      this.PERSISTENT_WALLET_TYPE_KEY,
+      this.PARTI_WALLET_TYPE
+    );
 
     // Verify it was saved correctly
     try {
@@ -94,6 +124,7 @@ export class SessionManager {
   /**
    * Save wallet connection information to sessionStorage manually
    * Use this as a fallback when the SDK connection is not available
+   * Also saves to localStorage for persistence across browser sessions
    *
    * @param address Wallet address
    * @param pubKey Optional public key
@@ -111,9 +142,18 @@ export class SessionManager {
       },
     };
 
+    const connectionString = JSON.stringify(connection);
+
     // Save to sessionStorage with the same keys used by Partisia Wallet
-    sessionStorage.setItem(this.PARTI_WALLET_KEY, JSON.stringify(connection));
+    sessionStorage.setItem(this.PARTI_WALLET_KEY, connectionString);
     sessionStorage.setItem(this.WALLET_TYPE_KEY, this.PARTI_WALLET_TYPE);
+
+    // Also save to localStorage for persistence across browser sessions
+    localStorage.setItem(this.PERSISTENT_WALLET_KEY, connectionString);
+    localStorage.setItem(
+      this.PERSISTENT_WALLET_TYPE_KEY,
+      this.PARTI_WALLET_TYPE
+    );
 
     // Verify it was saved correctly
     try {
@@ -147,11 +187,18 @@ export class SessionManager {
   }
 
   /**
-   * Clear wallet connection
+   * Clear wallet connection from both sessionStorage and localStorage
    */
   static clearWalletConnection(): void {
-    console.log("Clearing wallet connection from sessionStorage");
+    console.log(
+      "Clearing wallet connection from sessionStorage and localStorage"
+    );
+    // Clear sessionStorage
     sessionStorage.removeItem(this.PARTI_WALLET_KEY);
     sessionStorage.removeItem(this.WALLET_TYPE_KEY);
+
+    // Clear localStorage
+    localStorage.removeItem(this.PERSISTENT_WALLET_KEY);
+    localStorage.removeItem(this.PERSISTENT_WALLET_TYPE_KEY);
   }
 }

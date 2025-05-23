@@ -4,6 +4,7 @@ import { SenderAuthentication } from "@partisiablockchain/blockchain-api-transac
 export interface AuthContextType {
   // Single source of truth for wallet connection
   isConnected: boolean;
+  canSign: boolean; // Whether the current connection can sign transactions
 
   // Active account info
   account: SenderAuthentication | null;
@@ -16,6 +17,7 @@ export interface AuthContextType {
   // Methods
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  ensureSigningCapability: () => Promise<boolean>; // Forces reconnection if needed
 
   // Member status and permissions
   isMemberOf: (collectionId: string) => Promise<boolean>;

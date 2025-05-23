@@ -11,23 +11,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectError, setConnectError] = useState<Error | null>(null);
+  const [canSign, setCanSign] = useState(false);
+  const [sdkInitialized, setSdkInitialized] = useState(false);
 
   const isConnected = account !== null && walletAddress !== null;
 
-  // Effect for session restoration - only runs on mount
+  // Effect for SDK initialization
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeSdk = async () => {
+      try {
+        // Wait for crypto polyfills and any other SDK prerequisites
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (isMounted) {
+          setSdkInitialized(true);
+        }
+      } catch (error) {
+        console.error("Failed to initialize SDK:", error);
+      }
+    };
+
+    initializeSdk();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Effect for session restoration - only runs after SDK is initialized
   useEffect(() => {
     let isMounted = true;
 
     const restoreSession = async () => {
-      // Don't restore if we already have an account or are connecting
-      if (account || isConnecting) return;
+      if (!sdkInitialized || account || isConnecting) return;
 
       try {
         const session = SessionManager.getPartiWalletSession();
         if (!session?.connection?.account?.address) return;
 
-        // Don't create read-only accounts, force user to reconnect
-        SessionManager.clearWalletConnection();
+        const address = session.connection.account.address.trim();
+        console.log("Attempting to restore session for address:", address);
+
+        // First, try to restore full wallet connection via SDK
+        try {
+          const userAccount = await connectMpcWallet();
+          if (userAccount && userAccount.getAddress() === address) {
+            if (isMounted) {
+              setAccount(userAccount);
+              setWalletAddress(address);
+              setCanSign(true);
+              console.log("Full wallet connection restored:", address);
+            }
+            return;
+          }
+        } catch (sdkError) {
+          console.log(
+            "SDK reconnection failed, falling back to read-only mode:",
+            sdkError
+          );
+        }
+
+        // Fallback: Create a read-only SenderAuthentication
+        if (isMounted) {
+          const restoredAccount: SenderAuthentication = {
+            getAddress: () => address,
+            sign: async () => {
+              throw new Error(
+                "Please reconnect your wallet to sign transactions"
+              );
+            },
+          };
+
+          setAccount(restoredAccount);
+          setWalletAddress(address);
+          setCanSign(false);
+          console.log(
+            "Session restored in read-only mode for address:",
+            address
+          );
+        }
       } catch (error) {
         console.error("Failed to restore session:", error);
         if (isMounted) {
@@ -45,46 +107,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, []); // Empty deps array - only run on mount
-
-  // Connect method
-  const connect = useCallback(async () => {
-    if (isConnecting || account) return;
-
-    setIsConnecting(true);
-    setConnectError(null);
-
-    try {
-      console.log("Connecting to wallet...");
-      const userAccount = await connectMpcWallet();
-
-      if (userAccount) {
-        const address = userAccount.getAddress().trim();
-        setAccount(userAccount);
-        setWalletAddress(address);
-        setConnectError(null);
-        console.log("Wallet connected successfully:", address);
-      }
-    } catch (error: unknown) {
-      console.error("Wallet connection error:", error);
-      // Clear any partial state on error
-      setAccount(null);
-      setWalletAddress(null);
-      setConnectError(
-        error instanceof Error ? error : new Error(String(error))
-      );
-      SessionManager.clearWalletConnection();
-      throw error; // Re-throw to let callers handle the error
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [isConnecting, account]);
+  }, [sdkInitialized, account, isConnecting]);
 
   // Disconnect method
   const disconnect = useCallback(async () => {
     try {
       setAccount(null);
       setWalletAddress(null);
+      setCanSign(false);
       setConnectError(null);
       SessionManager.clearWalletConnection();
       console.log("Wallet disconnected");
@@ -93,6 +123,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   }, []);
+
+  // Connect method - always establishes a full signing connection
+  const connect = useCallback(async () => {
+    if (isConnecting) return;
+
+    setIsConnecting(true);
+    setConnectError(null);
+
+    try {
+      // If we have a read-only connection, clear it first
+      if (isConnected && !canSign) {
+        await disconnect();
+      }
+
+      console.log("Connecting to wallet...");
+      const userAccount = await connectMpcWallet();
+
+      if (userAccount) {
+        const address = userAccount.getAddress().trim();
+        setAccount(userAccount);
+        setWalletAddress(address);
+        setCanSign(true);
+        setConnectError(null);
+        console.log("Wallet connected successfully:", address);
+      }
+    } catch (error: unknown) {
+      console.error("Wallet connection error:", error);
+      // Clear any partial state on error
+      setAccount(null);
+      setWalletAddress(null);
+      setCanSign(false);
+      setConnectError(
+        error instanceof Error ? error : new Error(String(error))
+      );
+      SessionManager.clearWalletConnection();
+      throw error; // Re-throw to let callers handle the error
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [isConnecting, isConnected, canSign, disconnect]);
+
+  // Method to ensure we have signing capability
+  const ensureSigningCapability = useCallback(async (): Promise<boolean> => {
+    if (canSign) return true;
+
+    try {
+      await connect();
+      return true;
+    } catch (error) {
+      console.error("Failed to establish signing capability:", error);
+      return false;
+    }
+  }, [canSign, connect]);
 
   // Permission checking methods
   const isMemberOf = useCallback(
@@ -184,12 +267,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         isConnected,
+        canSign,
         account,
         walletAddress,
         isConnecting,
         connectError,
         connect,
         disconnect,
+        ensureSigningCapability,
         isMemberOf,
         canPerformAction,
       }}

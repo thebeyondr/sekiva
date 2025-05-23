@@ -39,7 +39,7 @@ export interface RegularTransaction {
 export type Transaction = SecretInputTransaction | RegularTransaction;
 
 export function useTransaction() {
-  const { account } = useAuth();
+  const { account, canSign, ensureSigningCapability } = useAuth();
   const [result, setResult] = useState<TransactionResult>({
     isLoading: false,
     isSuccess: false,
@@ -52,6 +52,12 @@ export function useTransaction() {
     async (tx: Transaction) => {
       if (!account) {
         throw new Error("Wallet not connected");
+      }
+
+      // Ensure we have signing capability before proceeding
+      const hasSigningCapability = await ensureSigningCapability();
+      if (!hasSigningCapability) {
+        throw new Error("Please reconnect your wallet to perform transactions");
       }
 
       setResult((prev) => ({ ...prev, isLoading: true }));
@@ -119,11 +125,12 @@ export function useTransaction() {
         throw error;
       }
     },
-    [account]
+    [account, ensureSigningCapability]
   );
 
   return {
     ...result,
     sendTransaction,
+    requiresWalletConnection: !canSign, // Expose this to UI components
   };
 }

@@ -114,7 +114,7 @@ export function useDeployOrganization() {
         type: "regular",
         address: FACTORY_ADDRESS,
         rpc,
-        gasCost: 100_000,
+        gasCost: 10_000_000,
       });
     },
     onSuccess: () => {

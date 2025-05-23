@@ -96,17 +96,19 @@ const AboutTab = ({ organization, contractId }: AboutTabProps) => {
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <span className="font-medium w-20">Owner:</span>
-              <div>
-                <span className="font-mono text-sm break-all">
-                  {organization.owner.asString()}
-                </span>
+              <div className="flex flex-col xl:flex-row gap-2">
+                <div className="w-fit inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono xl:text-sm font-medium bg-gray-100 text-gray-600">
+                  ID ⁘ {organization.owner.asString()}
+                </div>
+                <a
+                  href={`https://browser.testnet.partisiablockchain.com/accounts/${organization.owner.asString()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-fit inline-flex items-center px-2.5 py-0.5 rounded-full text-xs xl:text-sm font-medium bg-blue-100 text-blue-600 hover:bg-blue-200"
+                >
+                  view <ExternalLinkIcon className="w-3 h-3 ml-1" />
+                </a>
               </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <span className="font-medium w-20">Created:</span>
-              <span>Not available</span>{" "}
-              {/* This would come from blockchain data */}
             </div>
           </div>
         </div>

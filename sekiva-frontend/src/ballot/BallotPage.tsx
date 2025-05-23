@@ -27,8 +27,16 @@ function isErrorWithMessage(e: unknown): e is ErrorWithMessage {
 const BallotPage = () => {
   const { organizationId, ballotId } = useParams();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const { mutate: castVote, isPending: isVoting } = useCastVote();
-  const { mutate: startTally, isPending: isStartingTally } = useComputeTally();
+  const {
+    mutate: castVote,
+    isPending: isVoting,
+    requiresWalletConnection: requiresWalletForVoting,
+  } = useCastVote();
+  const {
+    mutate: startTally,
+    isPending: isStartingTally,
+    requiresWalletConnection: requiresWalletForTally,
+  } = useComputeTally();
   const { organization, ballots, loading, error } = useOrganizationWithBallots(
     BlockchainAddress.fromString(organizationId as string)
   );
@@ -317,13 +325,21 @@ const BallotPage = () => {
                     ballotStatus === "active" &&
                     !hasVoted && (
                       <div className="pt-4">
+                        {requiresWalletForVoting && (
+                          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                            <p className="text-amber-800">
+                              Please connect your wallet to cast your vote.
+                              You'll need to sign a transaction.
+                            </p>
+                          </div>
+                        )}
                         <Button
                           onClick={handleCastVote}
                           disabled={
                             selectedOption === null ||
                             isVoting ||
                             hasVoted ||
-                            !account
+                            requiresWalletForVoting
                           }
                           className="w-full sm:w-auto"
                         >
@@ -365,17 +381,27 @@ const BallotPage = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {ballotStatus === "active" && (
-                        <Button
-                          onClick={handleStartTally}
-                          variant="outline"
-                          className="border-2 border-black hover:bg-gray-50"
-                          disabled={isStartingTally}
-                        >
-                          <TimerIcon className="w-4 h-4 mr-2" />
-                          {isStartingTally
-                            ? "Starting tally..."
-                            : "Start tally"}
-                        </Button>
+                        <>
+                          {requiresWalletForTally && (
+                            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                              <p className="text-amber-800">
+                                Please connect your wallet to start the tally.
+                                You'll need to sign a transaction.
+                              </p>
+                            </div>
+                          )}
+                          <Button
+                            onClick={handleStartTally}
+                            variant="outline"
+                            className="border-2 border-black hover:bg-gray-50"
+                            disabled={isStartingTally || requiresWalletForTally}
+                          >
+                            <TimerIcon className="w-4 h-4 mr-2" />
+                            {isStartingTally
+                              ? "Starting tally..."
+                              : "Start tally"}
+                          </Button>
+                        </>
                       )}
                       <p className="text-sm text-gray-500 mt-2">
                         Note: Starting the tally computation will close the

@@ -605,6 +605,11 @@ fn deploy_ballot(
     };
     let ballot_title = title.clone();
 
+    assert!(
+        state.members.len() >= 3,
+        "Organization must have at least 3 members to maintain vote privacy"
+    );
+
     // Generate a process ID for this ballot deployment
     let process_id = generate_process_id(&ctx);
 

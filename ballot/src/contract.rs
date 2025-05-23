@@ -199,6 +199,10 @@ fn initialize(
         duration_seconds <= 30 * 24 * 60 * 60,
         "Duration cannot exceed 30 days"
     );
+    assert!(
+        eligible_voters.len() >= 3,
+        "At least 3 eligible voters are required to maintain vote privacy"
+    );
 
     assert_ne!(
         administrator, organization,
@@ -402,6 +406,10 @@ fn compute_tally(
         CalculationStatus::Waiting,
         "Computation must start from Waiting state, but was {:?}",
         zk_state.calculation_state,
+    );
+    assert!(
+        state.already_voted.len() >= 3,
+        "At least 3 votes are required before tallying can begin"
     );
 
     // Generate a process ID for this tally

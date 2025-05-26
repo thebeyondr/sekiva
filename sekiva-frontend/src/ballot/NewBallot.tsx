@@ -23,7 +23,7 @@ import { useForm } from "@tanstack/react-form";
 import BN from "bn.js";
 import { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTransaction } from "@/hooks/useTransaction";
 
@@ -46,7 +46,8 @@ function NewBallot() {
   const { organizationId: collectiveId } = useParams();
   const { requiresWalletConnection } = useTransaction();
   const { getState: getOrganizationState } = useOrganizationContract();
-  const { mutate: deployBallot, isPending: isDeploying } = useDeployBallot();
+  const { mutateAsync: deployBallot, isPending: isDeploying } =
+    useDeployBallot();
 
   const { data: organizationState } = useQuery({
     queryKey: ["organization", collectiveId],
@@ -111,8 +112,13 @@ function NewBallot() {
         value.organization
       );
 
-      deployBallot(
-        {
+      try {
+        setTxDetails({
+          identifier: "pending",
+          destinationShardId: "pending",
+        });
+
+        const result = await deployBallot({
           organizationAddress,
           ballotInfo: {
             options: cleanOptions,
@@ -121,19 +127,15 @@ function NewBallot() {
             administrator: BlockchainAddress.fromString(account.getAddress()),
             durationSeconds: new BN(DURATION_OPTIONS[value.duration]),
           },
-        },
-        {
-          onSuccess: (result) => {
-            setTxDetails({
-              identifier: result.identifier,
-              destinationShardId: result.destinationShardId,
-            });
-          },
-          onError: (error) => {
-            setError(error instanceof Error ? error.message : String(error));
-          },
-        }
-      );
+        });
+
+        // Update with real transaction details
+        setTxDetails(result);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+        // Clear the pending dialog on error
+        setTxDetails(null);
+      }
     },
   });
 
@@ -418,6 +420,18 @@ function NewBallot() {
                                       </div>
                                     )}
                                   </form.Field>
+                                  <Button
+                                    type="button"
+                                    title="Remove option"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => field.removeValue(i)}
+                                    disabled={field.state.value.length <= 2}
+                                    className="ml-0.5 hover:text-red-600 hover:bg-red-100 hover:rotate-12 transition-all duration-300"
+                                    aria-label="Remove option"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                 </div>
                               ))}
 
@@ -488,7 +502,7 @@ function NewBallot() {
                         </div>
                       )}
                     </form.Field>
-                    <p className="text-base text-slate-700 bg-blue-100 border-[1.5px] border-blue-300 p-3 rounded-sm">
+                    <p className="text-base text-slate-700 bg-blue-100 border-[1.5px] border-blue-300 p-3 rounded-sm leading-[1.25]">
                       Ballots are private and secure. Only members can vote, and
                       votes are completely anonymous - no one can see who voted
                       for what. Each member can vote once, and results are only

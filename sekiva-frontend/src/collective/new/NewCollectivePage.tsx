@@ -69,6 +69,12 @@ const NewCollectivePage = () => {
           administrator: BlockchainAddress.fromString(account.getAddress()),
         };
 
+        // Show pending dialog immediately
+        setTxDetails({
+          identifier: "pending",
+          destinationShardId: "pending",
+        });
+
         deployOrganization(orgInfo, {
           onSuccess: (pointer) => {
             setTxDetails({
@@ -78,10 +84,12 @@ const NewCollectivePage = () => {
           },
           onError: (err) => {
             setError(err instanceof Error ? err.message : String(err));
+            setTxDetails(null);
           },
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        setTxDetails(null);
       }
     },
   });

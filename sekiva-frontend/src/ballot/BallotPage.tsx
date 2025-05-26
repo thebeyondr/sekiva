@@ -101,6 +101,14 @@ const BallotPage = () => {
     : false;
 
   const handleStartTally = () => {
+    if (requiresWalletForTally()) return;
+
+    setTxDetails({
+      id: "pending",
+      destinationShard: "pending",
+      action: "action",
+    });
+
     startTally(ballotId || "", {
       onSuccess: (data) => {
         console.log("Start tally success:", data);
@@ -110,17 +118,25 @@ const BallotPage = () => {
             destinationShard: data.destinationShardId,
             action: "action",
           });
-          console.log("Set tx details for tally:", {
-            id: data.identifier,
-            destinationShard: data.destinationShardId,
-          });
         }
+      },
+      onError: (err) => {
+        console.error("Failed to start tally:", err);
+        setTxDetails(null);
       },
     });
   };
 
   const handleCastVote = () => {
+    if (requiresWalletForVoting()) return;
+
     console.log("Casting vote with option:", selectedOption);
+    setTxDetails({
+      id: "pending",
+      destinationShard: "pending",
+      action: "action",
+    });
+
     castVote(
       {
         ballotAddress: ballotId!,
@@ -135,11 +151,11 @@ const BallotPage = () => {
               destinationShard: data.destinationShardId,
               action: "action",
             });
-            console.log("Set tx details for vote:", {
-              id: data.identifier,
-              destinationShard: data.destinationShardId,
-            });
           }
+        },
+        onError: (err) => {
+          console.error("Failed to cast vote:", err);
+          setTxDetails(null);
         },
       }
     );
@@ -325,7 +341,7 @@ const BallotPage = () => {
                     ballotStatus === "active" &&
                     !hasVoted && (
                       <div className="pt-4">
-                        {requiresWalletForVoting && (
+                        {requiresWalletForVoting() && (
                           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
                             <p className="text-amber-800">
                               Please connect your wallet to cast your vote.
@@ -339,7 +355,7 @@ const BallotPage = () => {
                             selectedOption === null ||
                             isVoting ||
                             hasVoted ||
-                            requiresWalletForVoting
+                            requiresWalletForVoting()
                           }
                           className="w-full sm:w-auto"
                         >
@@ -382,7 +398,7 @@ const BallotPage = () => {
                     <CardContent className="space-y-4">
                       {ballotStatus === "active" && (
                         <>
-                          {requiresWalletForTally && (
+                          {requiresWalletForTally() && (
                             <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
                               <p className="text-amber-800">
                                 Please connect your wallet to start the tally.
@@ -394,7 +410,9 @@ const BallotPage = () => {
                             onClick={handleStartTally}
                             variant="outline"
                             className="border-2 border-black hover:bg-gray-50"
-                            disabled={isStartingTally || requiresWalletForTally}
+                            disabled={
+                              isStartingTally || requiresWalletForTally()
+                            }
                           >
                             <TimerIcon className="w-4 h-4 mr-2" />
                             {isStartingTally

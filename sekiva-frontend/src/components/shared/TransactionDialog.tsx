@@ -30,8 +30,9 @@ export function TransactionDialog({
   const [open, setOpen] = useState(true);
   const [canNavigate, setCanNavigate] = useState(false);
   const navigate = useNavigate();
-  const status = useTransactionStatus(id, trait);
+  const status = useTransactionStatus(id === "pending" ? "" : id, trait);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isWaitingForWallet, setIsWaitingForWallet] = useState(true);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -75,6 +76,15 @@ export function TransactionDialog({
       onError(status.error);
     }
   }, [status.isError, status.error, onError]);
+
+  // Reset wallet waiting state when we get transaction status
+  useEffect(() => {
+    if (id === "pending") {
+      setIsWaitingForWallet(true);
+    } else if (status.isLoading || status.isSuccess || status.isError) {
+      setIsWaitingForWallet(false);
+    }
+  }, [id, status.isLoading, status.isSuccess, status.isError]);
 
   const getTargetPath = () => {
     if (!status.contractAddress) {
@@ -131,6 +141,7 @@ export function TransactionDialog({
     : "";
 
   const getProgressPercentage = () => {
+    if (id === "pending") return 20;
     if (status.isFinalized) return 100;
     if (status.isSuccess) return 75;
     if (status.isLoading) return 40;
@@ -138,26 +149,29 @@ export function TransactionDialog({
     return 20;
   };
 
-  const TransactionIdDisplay = () => (
-    <div className="w-full flex items-center justify-between mt-1 p-2 bg-gray-50 rounded-md border border-gray-200">
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-gray-500 font-medium">
-          Transaction ID:
-        </span>
-        <code className="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded">
-          {id.substring(0, 8)}...{id.substring(id.length - 8)}
-        </code>
+  const TransactionIdDisplay = () => {
+    if (id === "pending") return null;
+    return (
+      <div className="w-full flex items-center justify-between mt-1 p-2 bg-gray-50 rounded-md border border-gray-200">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500 font-medium">
+            Transaction ID:
+          </span>
+          <code className="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+            {id.substring(0, 8)}...{id.substring(id.length - 8)}
+          </code>
+        </div>
+        <a
+          href={transactionExplorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
+        >
+          view <ExternalLink className="w-3 h-3 ml-0.5" />
+        </a>
       </div>
-      <a
-        href={transactionExplorerUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
-      >
-        view <ExternalLink className="w-3 h-3 ml-0.5" />
-      </a>
-    </div>
-  );
+    );
+  };
 
   return (
     <Dialog
@@ -192,7 +206,25 @@ export function TransactionDialog({
         />
 
         <div className="flex flex-col items-center pb-6 px-5 space-y-6 pt-4">
-          {status.isLoading && (
+          {isWaitingForWallet && (
+            <div className="flex flex-col items-center space-y-4 w-full">
+              <div className="relative flex items-center justify-center w-24 h-24">
+                <div className="absolute inset-0 border-t-4 border-blue-500 border-opacity-40 rounded-full animate-spin"></div>
+                <div className="absolute inset-2 border-t-4 border-l-4 border-blue-500 rounded-full animate-spin"></div>
+                <Loader2 className="h-10 w-10 animate-pulse text-blue-600" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-center text-lg font-medium">
+                  Check your wallet
+                </p>
+                <p className="text-sm text-gray-500">
+                  Please confirm the transaction in your wallet...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!isWaitingForWallet && status.isLoading && (
             <div className="flex flex-col items-center space-y-4 w-full">
               <div className="relative flex items-center justify-center w-24 h-24">
                 <div className="absolute inset-0 border-t-4 border-blue-500 border-opacity-40 rounded-full animate-spin"></div>

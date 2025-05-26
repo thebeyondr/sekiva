@@ -94,6 +94,11 @@ const MembersTab = ({
         throw new Error("Please connect your wallet first");
       }
 
+      setTxnDialog({
+        id: "pending",
+        destinationShard: "pending",
+      });
+
       const pointer = await addMember(orgId, addAddress);
       if (pointer) {
         setTxnDialog({
@@ -106,40 +111,74 @@ const MembersTab = ({
     } catch (err) {
       console.error("Failed to add member:", err);
       setError(err instanceof Error ? err.message : String(err));
+      setTxnDialog(null);
     }
   };
   const handleRemoveMember = async (address: string) => {
     if (!orgId) return;
-    const res = await removeMember(orgId, address);
-    if (res) {
+    try {
       setTxnDialog({
-        id: res.identifier,
-        destinationShard: res.destinationShardId,
+        id: "pending",
+        destinationShard: "pending",
       });
+
+      const res = await removeMember(orgId, address);
+      if (res) {
+        setTxnDialog({
+          id: res.identifier,
+          destinationShard: res.destinationShardId,
+        });
+      }
+      setShowRemoveDialog(null);
+    } catch (err) {
+      console.error("Failed to remove member:", err);
+      setError(err instanceof Error ? err.message : String(err));
+      setTxnDialog(null);
     }
-    setShowRemoveDialog(null);
   };
   const handlePromoteMember = async (address: string) => {
     if (!orgId) return;
-    const res = await promoteMember(orgId, address);
-    if (res) {
+    try {
       setTxnDialog({
-        id: res.identifier,
-        destinationShard: res.destinationShardId,
+        id: "pending",
+        destinationShard: "pending",
       });
+
+      const res = await promoteMember(orgId, address);
+      if (res) {
+        setTxnDialog({
+          id: res.identifier,
+          destinationShard: res.destinationShardId,
+        });
+      }
+      setShowPromoteDialog(null);
+    } catch (err) {
+      console.error("Failed to promote member:", err);
+      setError(err instanceof Error ? err.message : String(err));
+      setTxnDialog(null);
     }
-    setShowPromoteDialog(null);
   };
   const handleDemoteMember = async (address: string) => {
     if (!orgId) return;
-    const res = await demoteMember(orgId, address);
-    if (res) {
+    try {
       setTxnDialog({
-        id: res.identifier,
-        destinationShard: res.destinationShardId,
+        id: "pending",
+        destinationShard: "pending",
       });
+
+      const res = await demoteMember(orgId, address);
+      if (res) {
+        setTxnDialog({
+          id: res.identifier,
+          destinationShard: res.destinationShardId,
+        });
+      }
+      setShowDemoteDialog(null);
+    } catch (err) {
+      console.error("Failed to demote member:", err);
+      setError(err instanceof Error ? err.message : String(err));
+      setTxnDialog(null);
     }
-    setShowDemoteDialog(null);
   };
 
   return (

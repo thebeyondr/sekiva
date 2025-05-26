@@ -35,39 +35,39 @@ export function TransactionDialog({
 
   const handleClose = useCallback(() => {
     setOpen(false);
-    if (action === "action" && status.isSuccess) {
-      window.location.reload();
-    }
-  }, [action, status.isSuccess, setOpen]);
+  }, [setOpen]);
 
   useEffect(() => {
-    if (status.isSuccess && status.isFinalized) {
-      if (action === "action") {
-        const timer = setTimeout(() => {
-          if (onSuccess) {
-            onSuccess(status.contractAddress || "");
-          }
-          handleClose();
-        }, 2000);
-        return () => clearTimeout(timer);
-      } else if (status.contractAddress) {
-        const timer = setTimeout(() => {
-          setCanNavigate(true);
-          if (onSuccess) {
-            onSuccess(status.contractAddress!);
-          }
-          setShowConfetti(true);
-        }, 10000);
-        return () => clearTimeout(timer);
-      }
+    console.log("Transaction status updated:", {
+      isSuccess: status.isSuccess,
+      isFinalized: status.isFinalized,
+      isLoading: status.isLoading,
+      contractAddress: status.contractAddress,
+    });
+  }, [status]);
+
+  useEffect(() => {
+    // For deploys, allow navigation and confetti when finalized
+    if (
+      (trait === "ballot" || trait === "collective") &&
+      status.isSuccess &&
+      status.isFinalized
+    ) {
+      setCanNavigate(true);
+      setShowConfetti(true);
+      if (onSuccess) onSuccess(status.contractAddress || "");
+    }
+    // For changes, keep dialog open until user explicitly closes
+    if (trait === "other" && status.isSuccess) {
+      setCanNavigate(true); // Allow closing via button
+      if (onSuccess) onSuccess(status.contractAddress || "");
     }
   }, [
     status.isSuccess,
     status.isFinalized,
     status.contractAddress,
     onSuccess,
-    action,
-    handleClose,
+    trait,
   ]);
 
   useEffect(() => {
@@ -77,28 +77,51 @@ export function TransactionDialog({
   }, [status.isError, status.error, onError]);
 
   const getTargetPath = () => {
-    if (!status.contractAddress || !returnPath) return returnPath;
+    if (!status.contractAddress) {
+      console.log("No contract address available");
+      return undefined;
+    }
 
-    let targetPath = returnPath;
+    console.log("Contract address:", status.contractAddress);
+    console.log("Action:", action);
+    console.log("Trait:", trait);
+
     if (action === "deploy" && status.contractAddress) {
       if (trait === "collective") {
-        targetPath = `/collectives/${status.contractAddress}`;
-      } else if (trait === "ballot") {
+        const targetPath = `/collectives/${status.contractAddress}`;
+        console.log("Setting collective path to:", targetPath);
+        return targetPath;
+      } else if (trait === "ballot" && returnPath) {
         const collectiveMatch = returnPath.match(/\/collectives\/([^/]+)/);
         const collectiveId = collectiveMatch ? collectiveMatch[1] : "";
-        targetPath = `/collectives/${collectiveId}/ballots/${status.contractAddress}`;
+        const targetPath = `/collectives/${collectiveId}/ballots/${status.contractAddress}`;
+        console.log("Setting ballot path to:", targetPath);
+        return targetPath;
       }
     }
 
-    return targetPath;
+    console.log("Falling back to returnPath:", returnPath);
+    return returnPath;
   };
 
   const handleViewEntity = () => {
-    if (!canNavigate) return;
+    console.log("handleViewEntity called");
+    console.log("canNavigate:", canNavigate);
+
+    if (!canNavigate) {
+      console.log("Cannot navigate yet");
+      return;
+    }
+
     setOpen(false);
     const targetPath = getTargetPath();
+    console.log("Target path for navigation:", targetPath);
+
     if (targetPath) {
+      console.log("Navigating to:", targetPath);
       navigate(targetPath);
+    } else {
+      console.log("No target path available for navigation");
     }
   };
 
@@ -140,7 +163,8 @@ export function TransactionDialog({
     <Dialog
       open={open}
       onOpenChange={(newOpen) => {
-        if (status.isSuccess && status.isFinalized && !canNavigate) {
+        // Only allow closing if transaction is successful or user explicitly closes
+        if (!newOpen && status.isLoading) {
           return;
         }
         setOpen(newOpen);
@@ -226,7 +250,7 @@ export function TransactionDialog({
                       href={contractExplorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs font-medium text-green-700 hover:text-green-900"
+                      className="inline-flex iteSms-center text-xs font-medium text-green-700 hover:text-green-900"
                     >
                       view <ExternalLink className="w-3 h-3 ml-0.5" />
                     </a>
@@ -288,9 +312,7 @@ export function TransactionDialog({
                     : "bg-black hover:bg-stone-800"
                 }`}
               >
-                {action === "action" && status.isSuccess
-                  ? "Close & Refresh"
-                  : "Close"}
+                Close
               </Button>
             )}
           </div>

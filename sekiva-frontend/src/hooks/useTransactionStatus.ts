@@ -26,10 +26,6 @@ export interface TransactionStatus {
   contractAddress: string | null;
 }
 
-const TRANSACTION_TTL = 120_000; // 120 seconds
-const DELAY_BETWEEN_RETRIES = 2_000; // 2 seconds
-const MAX_TRIES = TRANSACTION_TTL / DELAY_BETWEEN_RETRIES;
-
 export function useTransactionStatus(
   id: string,
   trait?: "ballot" | "collective" | "other"
@@ -164,7 +160,7 @@ export function useTransactionStatus(
               isLoading: true,
               isSuccess: executionStatus.success,
               isError: false,
-              isFinalized: false,
+              isFinalized: executionStatus.finalized,
               contractAddress,
             }));
             return;
@@ -172,15 +168,17 @@ export function useTransactionStatus(
         }
       }
 
-      // For non-deployment actions, we can consider it finalized once the transaction is successful
-      const isActionFinalized =
-        trait === "other" ? executionStatus.success : executionStatus.finalized;
+      // Distinguish deploy vs change for isFinalized
+      const isDeploy = trait === "ballot" || trait === "collective";
+      const isFinalized = isDeploy
+        ? executionStatus.finalized
+        : executionStatus.success;
 
       setStatus({
         isLoading: false,
         isSuccess: executionStatus.success,
         isError: !executionStatus.success,
-        isFinalized: isActionFinalized,
+        isFinalized,
         error: executionStatus.success ? null : new Error("Transaction failed"),
         data: {
           identifier: data.identifier,
@@ -206,60 +204,14 @@ export function useTransactionStatus(
   }, [id, trait]);
 
   useEffect(() => {
-    if (!id) return;
+    if (status.isFinalized || status.isError) return;
 
-    let isMounted = true;
-    let tryCount = 0;
-    let timeoutId: NodeJS.Timeout;
+    const interval = setInterval(() => {
+      fetchStatus();
+    }, 3000);
 
-    const pollStatus = async () => {
-      if (tryCount >= MAX_TRIES) {
-        setStatus((prev) => ({
-          ...prev,
-          isLoading: false,
-          isError: true,
-          error: new Error("Transaction timed out"),
-        }));
-        return;
-      }
-
-      try {
-        await fetchStatus();
-
-        if (!isMounted) return;
-
-        // Stop polling if we have a final state
-        if (status.isFinalized || status.isError) {
-          return;
-        }
-
-        // Exponential backoff with a max delay of 5 seconds
-        tryCount++;
-        const delay = Math.min(
-          DELAY_BETWEEN_RETRIES * Math.pow(1.5, tryCount - 1),
-          5000
-        );
-        timeoutId = setTimeout(pollStatus, delay);
-      } catch (error) {
-        console.error("[Transaction] Error polling status:", error);
-        tryCount++;
-        if (isMounted) {
-          const delay = Math.min(
-            DELAY_BETWEEN_RETRIES * Math.pow(1.5, tryCount - 1),
-            5000
-          );
-          timeoutId = setTimeout(pollStatus, delay);
-        }
-      }
-    };
-
-    pollStatus();
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [id, fetchStatus, status.isFinalized, status.isError]);
+    return () => clearInterval(interval);
+  }, [status.isFinalized, status.isError, fetchStatus]);
 
   return status;
 }

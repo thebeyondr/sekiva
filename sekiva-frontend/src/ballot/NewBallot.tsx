@@ -15,16 +15,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   TransactionPointer,
-  useDeployBallot,
   useOrganizationContract,
+  useDeployBallot,
 } from "@/hooks/useOrganizationContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useForm } from "@tanstack/react-form";
 import BN from "bn.js";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useTransaction } from "@/hooks/useTransaction";
 
 type DurationOption = keyof typeof DURATION_OPTIONS;
 
@@ -43,12 +44,9 @@ function NewBallot() {
   const [txDetails, setTxDetails] = useState<TransactionPointer | null>(null);
   const { account } = useAuth();
   const { organizationId: collectiveId } = useParams();
-  const {
-    mutate: deployBallot,
-    isPending: isDeploying,
-    requiresWalletConnection,
-  } = useDeployBallot();
+  const { requiresWalletConnection } = useTransaction();
   const { getState: getOrganizationState } = useOrganizationContract();
+  const { mutate: deployBallot, isPending: isDeploying } = useDeployBallot();
 
   const { data: organizationState } = useQuery({
     queryKey: ["organization", collectiveId],
@@ -62,6 +60,10 @@ function NewBallot() {
     organization: BlockchainAddress;
     durationSeconds: BN;
   } | null>(null);
+
+  const needsWallet = useCallback(() => {
+    return requiresWalletConnection();
+  }, [requiresWalletConnection]);
 
   useEffect(() => {
     if (!collectiveId) return;
@@ -87,53 +89,52 @@ function NewBallot() {
       setSuccessMessage(null);
       setTxDetails(null);
 
-      try {
-        if (!account) {
-          throw new Error("You need to connect your wallet first");
-        }
-
-        if (!value.organization) {
-          throw new Error("Organization address is required");
-        }
-
-        const cleanOptions = value.options.filter(
-          (option) => option.trim() !== ""
-        );
-
-        if (cleanOptions.length < 2) {
-          throw new Error("At least 2 options are required");
-        }
-
-        const organizationAddress = BlockchainAddress.fromString(
-          value.organization
-        );
-
-        deployBallot(
-          {
-            organizationAddress,
-            ballotInfo: {
-              options: cleanOptions,
-              title: value.title,
-              description: value.description,
-              administrator: BlockchainAddress.fromString(account.getAddress()),
-              durationSeconds: new BN(DURATION_OPTIONS[value.duration]),
-            },
-          },
-          {
-            onSuccess: (data) => {
-              setTxDetails({
-                identifier: data.identifier,
-                destinationShardId: data.destinationShardId,
-              });
-            },
-            onError: (error) => {
-              setError(error instanceof Error ? error.message : String(error));
-            },
-          }
-        );
-      } catch (error) {
-        setError(error instanceof Error ? error.message : String(error));
+      if (!account) {
+        setError("You need to connect your wallet first");
+        return;
       }
+
+      if (!value.organization) {
+        setError("Organization address is required");
+        return;
+      }
+
+      const cleanOptions = value.options.filter(
+        (option) => option.trim() !== ""
+      );
+
+      if (cleanOptions.length < 2) {
+        setError("At least 2 options are required");
+        return;
+      }
+
+      const organizationAddress = BlockchainAddress.fromString(
+        value.organization
+      );
+
+      deployBallot(
+        {
+          organizationAddress,
+          ballotInfo: {
+            options: cleanOptions,
+            title: value.title,
+            description: value.description,
+            administrator: BlockchainAddress.fromString(account.getAddress()),
+            durationSeconds: new BN(DURATION_OPTIONS[value.duration]),
+          },
+        },
+        {
+          onSuccess: (result) => {
+            setTxDetails({
+              identifier: result.identifier,
+              destinationShardId: result.destinationShardId,
+            });
+          },
+          onError: (error) => {
+            setError(error instanceof Error ? error.message : String(error));
+          },
+        }
+      );
     },
   });
 
@@ -194,22 +195,22 @@ function NewBallot() {
               <Button
                 type="button"
                 onClick={() => {
-                  if (testBallotData) {
-                    deployBallot({
-                      organizationAddress: BlockchainAddress.fromString(
-                        collectiveId!
+                  if (!testBallotData || !account) return;
+
+                  deployBallot({
+                    organizationAddress: BlockchainAddress.fromString(
+                      collectiveId!
+                    ),
+                    ballotInfo: {
+                      options: testBallotData.options,
+                      title: testBallotData.title,
+                      description: testBallotData.description,
+                      administrator: BlockchainAddress.fromString(
+                        account.getAddress()
                       ),
-                      ballotInfo: {
-                        options: testBallotData.options,
-                        title: testBallotData.title,
-                        description: testBallotData.description,
-                        administrator: BlockchainAddress.fromString(
-                          account.getAddress()
-                        ),
-                        durationSeconds: testBallotData.durationSeconds,
-                      },
-                    });
-                  }
+                      durationSeconds: testBallotData.durationSeconds,
+                    },
+                  });
                 }}
                 className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"
                 disabled={isDeploying}
@@ -240,7 +241,7 @@ function NewBallot() {
                     }}
                     className="flex flex-col gap-4"
                   >
-                    {requiresWalletConnection && (
+                    {needsWallet() && (
                       <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
                         <p className="text-amber-800">
                           Please connect your wallet to create a ballot. You'll
@@ -529,7 +530,7 @@ function NewBallot() {
                             disabled={
                               !canSubmit ||
                               isSubmitting ||
-                              requiresWalletConnection ||
+                              needsWallet() ||
                               isDeploying
                             }
                           >
@@ -546,7 +547,7 @@ function NewBallot() {
         </section>
       </div>
 
-      {/* Add Transaction Dialog */}
+      {/* Transaction Dialog */}
       {txDetails && (
         <TransactionDialog
           action="deploy"

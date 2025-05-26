@@ -8,7 +8,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { useTransactionStatus } from "@/hooks/useTransactionStatus";
 import { useNavigate } from "react-router";
-import { Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  AlertCircle,
+  ExternalLink,
+  Triangle,
+  DiameterIcon,
+  Lollipop,
+} from "lucide-react";
 
 interface TransactionDialogProps {
   action: "deploy" | "action";
@@ -208,10 +215,8 @@ export function TransactionDialog({
         <div className="flex flex-col items-center pb-6 px-5 space-y-6 pt-4">
           {isWaitingForWallet && (
             <div className="flex flex-col items-center space-y-4 w-full">
-              <div className="relative flex items-center justify-center w-24 h-24">
-                <div className="absolute inset-0 border-t-4 border-blue-500 border-opacity-40 rounded-full animate-spin"></div>
-                <div className="absolute inset-2 border-t-4 border-l-4 border-blue-500 rounded-full animate-spin"></div>
-                <Loader2 className="h-10 w-10 animate-pulse text-blue-600" />
+              <div className="flex items-center justify-center w-24 h-24">
+                <DiameterIcon className="h-16 w-16 text-yellow-400 animate-spin" />
               </div>
               <div className="text-center space-y-1">
                 <p className="text-center text-lg font-medium">
@@ -226,10 +231,8 @@ export function TransactionDialog({
 
           {!isWaitingForWallet && status.isLoading && (
             <div className="flex flex-col items-center space-y-4 w-full">
-              <div className="relative flex items-center justify-center w-24 h-24">
-                <div className="absolute inset-0 border-t-4 border-blue-500 border-opacity-40 rounded-full animate-spin"></div>
-                <div className="absolute inset-2 border-t-4 border-l-4 border-blue-500 rounded-full animate-spin"></div>
-                <Loader2 className="h-10 w-10 animate-pulse text-blue-600" />
+              <div className="flex items-center justify-center w-24 h-24">
+                <Lollipop className="h-16 w-16 text-yellow-400 animate-spin" />
               </div>
               <div className="text-center space-y-1">
                 <p className="text-center text-lg font-medium">

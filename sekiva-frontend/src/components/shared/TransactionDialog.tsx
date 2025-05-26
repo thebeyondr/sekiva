@@ -12,7 +12,6 @@ import {
   Loader2,
   AlertCircle,
   ExternalLink,
-  Triangle,
   DiameterIcon,
   Lollipop,
 } from "lucide-react";
@@ -285,7 +284,7 @@ export function TransactionDialog({
                       href={contractExplorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex iteSms-center text-xs font-medium text-green-700 hover:text-green-900"
+                      className="inline-flex items-center text-xs font-medium text-green-700 hover:text-green-900"
                     >
                       view <ExternalLink className="w-3 h-3 ml-0.5" />
                     </a>

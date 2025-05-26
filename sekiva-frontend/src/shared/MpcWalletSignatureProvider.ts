@@ -3,7 +3,6 @@ import {
   Signature,
 } from "@partisiablockchain/blockchain-api-transaction-client";
 import PartisiaSdk from "partisia-sdk";
-import { SessionManager } from "@/auth/SessionManager";
 
 /**
  * Initializes a connection to the Partisia Blockchain MPC wallet.
@@ -37,9 +36,6 @@ export const connectMpcWallet = async (): Promise<SenderAuthentication> => {
     }
 
     console.log("Connected to wallet, account:", connection.account);
-
-    // Save connection to sessionStorage
-    SessionManager.saveWalletConnectionFromSdk(connection);
 
     // Create a SenderAuthentication object for transaction signing
     return {

@@ -102,7 +102,6 @@ function NewBallot() {
       const cleanOptions = value.options.filter(
         (option) => option.trim() !== ""
       );
-
       if (cleanOptions.length < 2) {
         setError("At least 2 options are required");
         return;
@@ -188,7 +187,6 @@ function NewBallot() {
             </Link>
           </section>
         )}
-        {organizationState && <p>{organizationState.members.length} members</p>}
         <section className="container mx-auto max-w-3xl py-10">
           <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
             {process.env.NODE_ENV === "development" && account && (
@@ -360,11 +358,19 @@ function NewBallot() {
 
                       <form.Field name="options" mode="array">
                         {(field) => {
+                          const cleanOptions = field.state.value.filter(
+                            (opt) => opt.trim() !== ""
+                          );
                           return (
                             <div className="flex flex-col gap-2">
                               <p className="text-xs uppercase font-medium tracking-wide text-stone-700 mb-2">
-                                Add up to 5 options:{" "}
-                                {5 - field.state.value.length} remaining
+                                Add at least 2 options
+                                {cleanOptions.length < 2 &&
+                                  field.state.meta.isTouched && (
+                                    <span className="text-red-500 ml-2">
+                                      (At least 2 options required)
+                                    </span>
+                                  )}
                               </p>
                               {field.state.value.map((_, i) => (
                                 <div
@@ -415,20 +421,16 @@ function NewBallot() {
                                 </div>
                               ))}
 
-                              {field.state.value.length < 5 && (
-                                <Button
-                                  className="w-full shadow-none border-2"
-                                  variant="outline"
-                                  onClick={() => {
-                                    if (field.state.value.length < 5) {
-                                      field.pushValue("");
-                                    }
-                                  }}
-                                  type="button"
-                                >
-                                  Add option
-                                </Button>
-                              )}
+                              <Button
+                                className="w-full shadow-none border-2"
+                                variant="outline"
+                                onClick={() => {
+                                  field.pushValue("");
+                                }}
+                                type="button"
+                              >
+                                Add option
+                              </Button>
                             </div>
                           );
                         }}

@@ -81,7 +81,63 @@ const BallotPage = () => {
   }, [organizationId, account, canPerformAction]);
 
   if (!ballotId) return <div>No ballot ID</div>;
-  if (loading) return <div>Loading...</div>;
+  if (loading)
+    return (
+      <div className="min-h-screen bg-sk-yellow-light">
+        <NavBar />
+        <div className="container mx-auto max-w-[1500px]">
+          <section className="container mx-auto max-w-4xl py-6">
+            <section className="mb-4 flex items-center">
+              <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+            </section>
+
+            <div className="space-y-6">
+              <div className="bg-white border-2 border-black rounded-lg p-6 animate-pulse">
+                <div className="space-y-4">
+                  {/* Title skeleton */}
+                  <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                  {/* Description skeleton */}
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                  {/* Status and time info skeleton */}
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="h-6 bg-gray-200 rounded w-24"></div>
+                    <div className="h-6 bg-gray-200 rounded w-32"></div>
+                  </div>
+                  {/* Vote count skeleton */}
+                  <div className="h-6 bg-gray-200 rounded w-36 mt-2"></div>
+                </div>
+              </div>
+
+              <Card className="border-2 border-black overflow-hidden p-0">
+                <CardContent className="p-6 space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">
+                      Ballot Options
+                    </h2>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="p-4 border-2 border-gray-200 rounded-md"
+                        >
+                          <div className="flex items-center">
+                            <div className="w-5 h-5 border-2 border-gray-200 rounded-full mr-3"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
   if (error)
     return (
       <div>
@@ -219,13 +275,49 @@ const BallotPage = () => {
           </section>
 
           {loading ? (
-            <Card className="border-2 border-black p-8">
-              <div className="animate-pulse space-y-4">
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-48 bg-gray-200 rounded"></div>
+            <div className="space-y-6">
+              <div className="bg-white border-2 border-black rounded-lg p-6 animate-pulse">
+                <div className="space-y-4">
+                  {/* Title skeleton */}
+                  <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                  {/* Description skeleton */}
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                  {/* Status and time info skeleton */}
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="h-6 bg-gray-200 rounded w-24"></div>
+                    <div className="h-6 bg-gray-200 rounded w-32"></div>
+                  </div>
+                  {/* Vote count skeleton */}
+                  <div className="h-6 bg-gray-200 rounded w-36 mt-2"></div>
+                </div>
               </div>
-            </Card>
+
+              <Card className="border-2 border-black overflow-hidden p-0">
+                <CardContent className="p-6 space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">
+                      Ballot Options
+                    </h2>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="p-4 border-2 border-gray-200 rounded-md"
+                        >
+                          <div className="flex items-center">
+                            <div className="w-5 h-5 border-2 border-gray-200 rounded-full mr-3"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           ) : error ? (
             <Card className="border-2 border-black p-8">
               <div className="bg-red-50 border border-red-200 p-4 rounded">

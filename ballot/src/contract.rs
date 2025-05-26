@@ -192,7 +192,6 @@ fn initialize(
     eligible_voters: Vec<Address>,
     duration_seconds: u64,
 ) -> BallotState {
-    assert!(options.len() <= 5, "At most 5 options are supported");
     assert!(options.len() > 1, "At least 2 options are required");
     assert!(duration_seconds > 0, "Duration must be greater than 0");
     assert!(

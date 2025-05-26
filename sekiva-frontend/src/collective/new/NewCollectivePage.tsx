@@ -232,7 +232,6 @@ const NewCollectivePage = () => {
                   id={txDetails.identifier}
                   trait="collective"
                   returnPath="/collectives"
-                  onSuccess={() => setTxDetails(null)}
                   onError={() => setTxDetails(null)}
                 />
               )}

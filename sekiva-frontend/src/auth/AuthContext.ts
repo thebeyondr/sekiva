@@ -1,5 +1,6 @@
 import { createContext } from "react";
 import { SenderAuthentication } from "@partisiablockchain/blockchain-api-transaction-client";
+import { ActionType } from "./useAuth";
 
 export interface AuthContextType {
   // Single source of truth for wallet connection
@@ -21,7 +22,10 @@ export interface AuthContextType {
 
   // Member status and permissions
   isMemberOf: (collectionId: string) => Promise<boolean>;
-  canPerformAction: (actionType: string, targetId?: string) => Promise<boolean>;
+  canPerformAction: (
+    actionType: ActionType,
+    targetId?: string
+  ) => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(

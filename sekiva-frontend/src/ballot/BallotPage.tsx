@@ -81,7 +81,63 @@ const BallotPage = () => {
   }, [organizationId, account, canPerformAction]);
 
   if (!ballotId) return <div>No ballot ID</div>;
-  if (loading) return <div>Loading...</div>;
+  if (loading)
+    return (
+      <div className="min-h-screen bg-sk-yellow-light">
+        <NavBar />
+        <div className="container mx-auto max-w-[1500px]">
+          <section className="container mx-auto max-w-4xl py-6">
+            <section className="mb-4 flex items-center">
+              <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
+            </section>
+
+            <div className="space-y-6">
+              <div className="bg-white border-2 border-black rounded-lg p-6 animate-pulse">
+                <div className="space-y-4">
+                  {/* Title skeleton */}
+                  <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                  {/* Description skeleton */}
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                  {/* Status and time info skeleton */}
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="h-6 bg-gray-200 rounded w-24"></div>
+                    <div className="h-6 bg-gray-200 rounded w-32"></div>
+                  </div>
+                  {/* Vote count skeleton */}
+                  <div className="h-6 bg-gray-200 rounded w-36 mt-2"></div>
+                </div>
+              </div>
+
+              <Card className="border-2 border-black overflow-hidden p-0">
+                <CardContent className="p-6 space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">
+                      Ballot Options
+                    </h2>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="p-4 border-2 border-gray-200 rounded-md"
+                        >
+                          <div className="flex items-center">
+                            <div className="w-5 h-5 border-2 border-gray-200 rounded-full mr-3"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
   if (error)
     return (
       <div>
@@ -101,6 +157,14 @@ const BallotPage = () => {
     : false;
 
   const handleStartTally = () => {
+    if (requiresWalletForTally()) return;
+
+    setTxDetails({
+      id: "pending",
+      destinationShard: "pending",
+      action: "action",
+    });
+
     startTally(ballotId || "", {
       onSuccess: (data) => {
         console.log("Start tally success:", data);
@@ -110,17 +174,25 @@ const BallotPage = () => {
             destinationShard: data.destinationShardId,
             action: "action",
           });
-          console.log("Set tx details for tally:", {
-            id: data.identifier,
-            destinationShard: data.destinationShardId,
-          });
         }
+      },
+      onError: (err) => {
+        console.error("Failed to start tally:", err);
+        setTxDetails(null);
       },
     });
   };
 
   const handleCastVote = () => {
+    if (requiresWalletForVoting()) return;
+
     console.log("Casting vote with option:", selectedOption);
+    setTxDetails({
+      id: "pending",
+      destinationShard: "pending",
+      action: "action",
+    });
+
     castVote(
       {
         ballotAddress: ballotId!,
@@ -135,11 +207,11 @@ const BallotPage = () => {
               destinationShard: data.destinationShardId,
               action: "action",
             });
-            console.log("Set tx details for vote:", {
-              id: data.identifier,
-              destinationShard: data.destinationShardId,
-            });
           }
+        },
+        onError: (err) => {
+          console.error("Failed to cast vote:", err);
+          setTxDetails(null);
         },
       }
     );
@@ -203,13 +275,49 @@ const BallotPage = () => {
           </section>
 
           {loading ? (
-            <Card className="border-2 border-black p-8">
-              <div className="animate-pulse space-y-4">
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-48 bg-gray-200 rounded"></div>
+            <div className="space-y-6">
+              <div className="bg-white border-2 border-black rounded-lg p-6 animate-pulse">
+                <div className="space-y-4">
+                  {/* Title skeleton */}
+                  <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                  {/* Description skeleton */}
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                  </div>
+                  {/* Status and time info skeleton */}
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="h-6 bg-gray-200 rounded w-24"></div>
+                    <div className="h-6 bg-gray-200 rounded w-32"></div>
+                  </div>
+                  {/* Vote count skeleton */}
+                  <div className="h-6 bg-gray-200 rounded w-36 mt-2"></div>
+                </div>
               </div>
-            </Card>
+
+              <Card className="border-2 border-black overflow-hidden p-0">
+                <CardContent className="p-6 space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">
+                      Ballot Options
+                    </h2>
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="p-4 border-2 border-gray-200 rounded-md"
+                        >
+                          <div className="flex items-center">
+                            <div className="w-5 h-5 border-2 border-gray-200 rounded-full mr-3"></div>
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           ) : error ? (
             <Card className="border-2 border-black p-8">
               <div className="bg-red-50 border border-red-200 p-4 rounded">
@@ -325,7 +433,7 @@ const BallotPage = () => {
                     ballotStatus === "active" &&
                     !hasVoted && (
                       <div className="pt-4">
-                        {requiresWalletForVoting && (
+                        {requiresWalletForVoting() && (
                           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
                             <p className="text-amber-800">
                               Please connect your wallet to cast your vote.
@@ -339,7 +447,7 @@ const BallotPage = () => {
                             selectedOption === null ||
                             isVoting ||
                             hasVoted ||
-                            requiresWalletForVoting
+                            requiresWalletForVoting()
                           }
                           className="w-full sm:w-auto"
                         >
@@ -382,7 +490,7 @@ const BallotPage = () => {
                     <CardContent className="space-y-4">
                       {ballotStatus === "active" && (
                         <>
-                          {requiresWalletForTally && (
+                          {requiresWalletForTally() && (
                             <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
                               <p className="text-amber-800">
                                 Please connect your wallet to start the tally.
@@ -394,7 +502,9 @@ const BallotPage = () => {
                             onClick={handleStartTally}
                             variant="outline"
                             className="border-2 border-black hover:bg-gray-50"
-                            disabled={isStartingTally || requiresWalletForTally}
+                            disabled={
+                              isStartingTally || requiresWalletForTally()
+                            }
                           >
                             <TimerIcon className="w-4 h-4 mr-2" />
                             {isStartingTally

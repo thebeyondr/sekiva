@@ -7,6 +7,7 @@ import {
 import { Client, RealZkClient } from "@partisiablockchain/zk-client";
 import { CompactBitArray } from "@secata-public/bitmanipulation-ts";
 import { useAuth } from "@/auth/useAuth";
+import { WalletError } from "@/auth/usePartisiaWallet";
 
 export interface TransactionPointer {
   identifier: string;
@@ -39,7 +40,7 @@ export interface RegularTransaction {
 export type Transaction = SecretInputTransaction | RegularTransaction;
 
 export function useTransaction() {
-  const { account, canSign, ensureSigningCapability } = useAuth();
+  const { account, isConnected } = useAuth();
   const [result, setResult] = useState<TransactionResult>({
     isLoading: false,
     isSuccess: false,
@@ -48,25 +49,33 @@ export function useTransaction() {
     transactionPointer: null,
   });
 
+  const requiresWalletConnection = useCallback(() => {
+    if (!account) return true;
+    return !isConnected;
+  }, [account, isConnected]);
+
   const sendTransaction = useCallback(
     async (tx: Transaction) => {
       if (!account) {
-        throw new Error("Wallet not connected");
+        throw new WalletError("Wallet not connected", "NOT_CONNECTED");
       }
 
-      // Ensure we have signing capability before proceeding
-      const hasSigningCapability = await ensureSigningCapability();
-      if (!hasSigningCapability) {
-        throw new Error("Please reconnect your wallet to perform transactions");
+      if (!isConnected) {
+        throw new WalletError(
+          "Please reconnect your wallet to perform transactions",
+          "NOT_CONNECTED"
+        );
       }
 
-      setResult((prev) => ({ ...prev, isLoading: true }));
+      setResult((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
+        // Create transaction client with account from auth
         const txClient = BlockchainTransactionClient.create(
           TESTNET_URL,
           account
         );
+
         let txn: SentTransaction;
 
         if (tx.type === "secret") {
@@ -94,27 +103,36 @@ export function useTransaction() {
         // Wait for spawned events
         await txClient.waitForSpawnedEvents(txn);
 
-        if (txn.transactionPointer) {
-          const pointer: TransactionPointer = {
-            identifier: txn.transactionPointer.identifier,
-            destinationShardId:
-              txn.transactionPointer.destinationShardId.toString(),
-          };
-
-          setResult({
-            isLoading: false,
-            isSuccess: true,
-            isError: false,
-            error: null,
-            transactionPointer: pointer,
-          });
-
-          return pointer;
+        if (!txn.transactionPointer) {
+          throw new WalletError(
+            "No transaction pointer returned",
+            "NO_POINTER"
+          );
         }
 
-        throw new Error("No transaction pointer returned");
+        const pointer: TransactionPointer = {
+          identifier: txn.transactionPointer.identifier,
+          destinationShardId:
+            txn.transactionPointer.destinationShardId.toString(),
+        };
+
+        setResult({
+          isLoading: false,
+          isSuccess: true,
+          isError: false,
+          error: null,
+          transactionPointer: pointer,
+        });
+
+        return pointer;
       } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const error =
+          err instanceof WalletError
+            ? err
+            : new WalletError(
+                err instanceof Error ? err.message : String(err),
+                "TRANSACTION_ERROR"
+              );
         setResult({
           isLoading: false,
           isSuccess: false,
@@ -125,12 +143,12 @@ export function useTransaction() {
         throw error;
       }
     },
-    [account, ensureSigningCapability]
+    [account, isConnected]
   );
 
   return {
     ...result,
     sendTransaction,
-    requiresWalletConnection: !canSign, // Expose this to UI components
+    requiresWalletConnection,
   };
 }

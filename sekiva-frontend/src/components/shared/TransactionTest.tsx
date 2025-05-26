@@ -20,7 +20,7 @@ export default function TransactionTest() {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="flex flex-col gap-4 p-6 min-h-screen">
       <h1 className="text-2xl font-bold">Transaction Dialog Test</h1>
 
       <div className="flex flex-col gap-2">

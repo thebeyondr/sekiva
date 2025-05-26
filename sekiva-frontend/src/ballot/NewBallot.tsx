@@ -15,16 +15,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   TransactionPointer,
-  useDeployBallot,
   useOrganizationContract,
+  useDeployBallot,
 } from "@/hooks/useOrganizationContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useForm } from "@tanstack/react-form";
 import BN from "bn.js";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useTransaction } from "@/hooks/useTransaction";
 
 type DurationOption = keyof typeof DURATION_OPTIONS;
 
@@ -43,12 +44,10 @@ function NewBallot() {
   const [txDetails, setTxDetails] = useState<TransactionPointer | null>(null);
   const { account } = useAuth();
   const { organizationId: collectiveId } = useParams();
-  const {
-    mutate: deployBallot,
-    isPending: isDeploying,
-    requiresWalletConnection,
-  } = useDeployBallot();
+  const { requiresWalletConnection } = useTransaction();
   const { getState: getOrganizationState } = useOrganizationContract();
+  const { mutateAsync: deployBallot, isPending: isDeploying } =
+    useDeployBallot();
 
   const { data: organizationState } = useQuery({
     queryKey: ["organization", collectiveId],
@@ -62,6 +61,10 @@ function NewBallot() {
     organization: BlockchainAddress;
     durationSeconds: BN;
   } | null>(null);
+
+  const needsWallet = useCallback(() => {
+    return requiresWalletConnection();
+  }, [requiresWalletConnection]);
 
   useEffect(() => {
     if (!collectiveId) return;
@@ -87,52 +90,51 @@ function NewBallot() {
       setSuccessMessage(null);
       setTxDetails(null);
 
+      if (!account) {
+        setError("You need to connect your wallet first");
+        return;
+      }
+
+      if (!value.organization) {
+        setError("Organization address is required");
+        return;
+      }
+
+      const cleanOptions = value.options.filter(
+        (option) => option.trim() !== ""
+      );
+      if (cleanOptions.length < 2) {
+        setError("At least 2 options are required");
+        return;
+      }
+
+      const organizationAddress = BlockchainAddress.fromString(
+        value.organization
+      );
+
       try {
-        if (!account) {
-          throw new Error("You need to connect your wallet first");
-        }
+        setTxDetails({
+          identifier: "pending",
+          destinationShardId: "pending",
+        });
 
-        if (!value.organization) {
-          throw new Error("Organization address is required");
-        }
-
-        const cleanOptions = value.options.filter(
-          (option) => option.trim() !== ""
-        );
-
-        if (cleanOptions.length < 2) {
-          throw new Error("At least 2 options are required");
-        }
-
-        const organizationAddress = BlockchainAddress.fromString(
-          value.organization
-        );
-
-        deployBallot(
-          {
-            organizationAddress,
-            ballotInfo: {
-              options: cleanOptions,
-              title: value.title,
-              description: value.description,
-              administrator: BlockchainAddress.fromString(account.getAddress()),
-              durationSeconds: new BN(DURATION_OPTIONS[value.duration]),
-            },
+        const result = await deployBallot({
+          organizationAddress,
+          ballotInfo: {
+            options: cleanOptions,
+            title: value.title,
+            description: value.description,
+            administrator: BlockchainAddress.fromString(account.getAddress()),
+            durationSeconds: new BN(DURATION_OPTIONS[value.duration]),
           },
-          {
-            onSuccess: (data) => {
-              setTxDetails({
-                identifier: data.identifier,
-                destinationShardId: data.destinationShardId,
-              });
-            },
-            onError: (error) => {
-              setError(error instanceof Error ? error.message : String(error));
-            },
-          }
-        );
+        });
+
+        // Update with real transaction details
+        setTxDetails(result);
       } catch (error) {
         setError(error instanceof Error ? error.message : String(error));
+        // Clear the pending dialog on error
+        setTxDetails(null);
       }
     },
   });
@@ -187,29 +189,28 @@ function NewBallot() {
             </Link>
           </section>
         )}
-        {organizationState && <p>{organizationState.members.length} members</p>}
         <section className="container mx-auto max-w-3xl py-10">
           <div className="relative flex flex-col gap-4 bg-white rounded-lg p-10 border-2 border-black overflow-clip">
             {process.env.NODE_ENV === "development" && account && (
               <Button
                 type="button"
                 onClick={() => {
-                  if (testBallotData) {
-                    deployBallot({
-                      organizationAddress: BlockchainAddress.fromString(
-                        collectiveId!
+                  if (!testBallotData || !account) return;
+
+                  deployBallot({
+                    organizationAddress: BlockchainAddress.fromString(
+                      collectiveId!
+                    ),
+                    ballotInfo: {
+                      options: testBallotData.options,
+                      title: testBallotData.title,
+                      description: testBallotData.description,
+                      administrator: BlockchainAddress.fromString(
+                        account.getAddress()
                       ),
-                      ballotInfo: {
-                        options: testBallotData.options,
-                        title: testBallotData.title,
-                        description: testBallotData.description,
-                        administrator: BlockchainAddress.fromString(
-                          account.getAddress()
-                        ),
-                        durationSeconds: testBallotData.durationSeconds,
-                      },
-                    });
-                  }
+                      durationSeconds: testBallotData.durationSeconds,
+                    },
+                  });
                 }}
                 className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600"
                 disabled={isDeploying}
@@ -240,7 +241,7 @@ function NewBallot() {
                     }}
                     className="flex flex-col gap-4"
                   >
-                    {requiresWalletConnection && (
+                    {needsWallet() && (
                       <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
                         <p className="text-amber-800">
                           Please connect your wallet to create a ballot. You'll
@@ -359,11 +360,19 @@ function NewBallot() {
 
                       <form.Field name="options" mode="array">
                         {(field) => {
+                          const cleanOptions = field.state.value.filter(
+                            (opt) => opt.trim() !== ""
+                          );
                           return (
                             <div className="flex flex-col gap-2">
                               <p className="text-xs uppercase font-medium tracking-wide text-stone-700 mb-2">
-                                Add up to 5 options:{" "}
-                                {5 - field.state.value.length} remaining
+                                Add at least 2 options
+                                {cleanOptions.length < 2 &&
+                                  field.state.meta.isTouched && (
+                                    <span className="text-red-500 ml-2">
+                                      (At least 2 options required)
+                                    </span>
+                                  )}
                               </p>
                               {field.state.value.map((_, i) => (
                                 <div
@@ -411,23 +420,31 @@ function NewBallot() {
                                       </div>
                                     )}
                                   </form.Field>
+                                  <Button
+                                    type="button"
+                                    title="Remove option"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => field.removeValue(i)}
+                                    disabled={field.state.value.length <= 2}
+                                    className="ml-0.5 hover:text-red-600 hover:bg-red-100 hover:rotate-12 transition-all duration-300"
+                                    aria-label="Remove option"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                 </div>
                               ))}
 
-                              {field.state.value.length < 5 && (
-                                <Button
-                                  className="w-full shadow-none border-2"
-                                  variant="outline"
-                                  onClick={() => {
-                                    if (field.state.value.length < 5) {
-                                      field.pushValue("");
-                                    }
-                                  }}
-                                  type="button"
-                                >
-                                  Add option
-                                </Button>
-                              )}
+                              <Button
+                                className="w-full shadow-none border-2"
+                                variant="outline"
+                                onClick={() => {
+                                  field.pushValue("");
+                                }}
+                                type="button"
+                              >
+                                Add option
+                              </Button>
                             </div>
                           );
                         }}
@@ -485,7 +502,7 @@ function NewBallot() {
                         </div>
                       )}
                     </form.Field>
-                    <p className="text-base text-slate-700 bg-blue-100 border-[1.5px] border-blue-300 p-3 rounded-sm">
+                    <p className="text-base text-slate-700 bg-blue-100 border-[1.5px] border-blue-300 p-3 rounded-sm leading-[1.25]">
                       Ballots are private and secure. Only members can vote, and
                       votes are completely anonymous - no one can see who voted
                       for what. Each member can vote once, and results are only
@@ -529,7 +546,7 @@ function NewBallot() {
                             disabled={
                               !canSubmit ||
                               isSubmitting ||
-                              requiresWalletConnection ||
+                              needsWallet() ||
                               isDeploying
                             }
                           >
@@ -546,7 +563,7 @@ function NewBallot() {
         </section>
       </div>
 
-      {/* Add Transaction Dialog */}
+      {/* Transaction Dialog */}
       {txDetails && (
         <TransactionDialog
           action="deploy"

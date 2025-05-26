@@ -6,7 +6,7 @@ import {
 } from "@/hooks/useFactoryContract";
 import { BlockchainAddress } from "@partisiablockchain/abi-client";
 import { useForm, useStore } from "@tanstack/react-form";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { TransactionDialog } from "@/components/shared/TransactionDialog";
 import { PrefixedTextField } from "./PrefixedTextField";
 import CollectivePreview from "./CollectivePreview";
@@ -14,18 +14,22 @@ import NavBar from "@/components/shared/NavBar";
 import { TextField } from "./TextField";
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
+import { useTransaction } from "@/hooks/useTransaction";
 
 const NewCollectivePage = () => {
-  const { account } = useAuth();
-  const {
-    mutate: deployOrganization,
-    isPending: isDeploying,
-    requiresWalletConnection,
-  } = useDeployOrganization();
-  const [txDetails, setTxDetails] = useState(
-    null as null | { identifier: string; destinationShardId: string }
-  );
+  const { account, isConnected } = useAuth();
+  const { requiresWalletConnection } = useTransaction();
+  const { mutate: deployOrganization, isPending: isDeploying } =
+    useDeployOrganization();
+  const [txDetails, setTxDetails] = useState<{
+    identifier: string;
+    destinationShardId: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const needsWallet = useCallback(() => {
+    return requiresWalletConnection();
+  }, [requiresWalletConnection]);
 
   const form = useForm({
     defaultValues: {
@@ -41,33 +45,52 @@ const NewCollectivePage = () => {
       setError(null);
       setTxDetails(null);
 
-      if (!account) {
-        setError("Please connect your wallet to create a collective");
-        return;
+      try {
+        if (!isConnected) {
+          setError("Please connect your wallet to create a collective");
+          return;
+        }
+
+        if (!account) {
+          setError("Wallet not connected");
+          return;
+        }
+
+        const orgInfo: OrganizationInit = {
+          name: value.name,
+          description: value.description,
+          profileImage: value.profileImage || "",
+          bannerImage: value.bannerImage || "",
+          xUrl: value.x ? `https://x.com/${value.x}` : "",
+          discordUrl: value.discord
+            ? `https://discord.gg/${value.discord}`
+            : "",
+          websiteUrl: value.website ? `https://${value.website}` : "",
+          administrator: BlockchainAddress.fromString(account.getAddress()),
+        };
+
+        // Show pending dialog immediately
+        setTxDetails({
+          identifier: "pending",
+          destinationShardId: "pending",
+        });
+
+        deployOrganization(orgInfo, {
+          onSuccess: (pointer) => {
+            setTxDetails({
+              identifier: pointer.identifier,
+              destinationShardId: pointer.destinationShardId,
+            });
+          },
+          onError: (err) => {
+            setError(err instanceof Error ? err.message : String(err));
+            setTxDetails(null);
+          },
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setTxDetails(null);
       }
-
-      const orgInfo: OrganizationInit = {
-        name: value.name,
-        description: value.description,
-        profileImage: value.profileImage || "",
-        bannerImage: value.bannerImage || "",
-        xUrl: value.x ? `https://x.com/${value.x}` : "",
-        discordUrl: value.discord ? `https://discord.gg/${value.discord}` : "",
-        websiteUrl: value.website ? `https://${value.website}` : "",
-        administrator: BlockchainAddress.fromString(account.getAddress()),
-      };
-
-      deployOrganization(orgInfo, {
-        onSuccess: (pointer) => {
-          setTxDetails({
-            identifier: pointer.identifier,
-            destinationShardId: pointer.destinationShardId,
-          });
-        },
-        onError: (err) => {
-          setError(err instanceof Error ? err.message : String(err));
-        },
-      });
     },
   });
 
@@ -101,7 +124,7 @@ const NewCollectivePage = () => {
                 Create a new collective
               </h1>
 
-              {requiresWalletConnection && (
+              {needsWallet() && (
                 <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
                   <p className="text-amber-800">
                     Please connect your wallet to create a collective. You'll
@@ -199,7 +222,7 @@ const NewCollectivePage = () => {
               <Button
                 type="submit"
                 className="mt-6 w-full"
-                disabled={isDeploying || requiresWalletConnection}
+                disabled={isDeploying || needsWallet()}
               >
                 {isDeploying ? "Creating..." : "Create Collective"}
               </Button>
@@ -209,7 +232,6 @@ const NewCollectivePage = () => {
                   id={txDetails.identifier}
                   trait="collective"
                   returnPath="/collectives"
-                  onSuccess={() => setTxDetails(null)}
                   onError={() => setTxDetails(null)}
                 />
               )}

@@ -609,6 +609,10 @@ fn deploy_ballot(
         state.members.len() >= 3,
         "Organization must have at least 3 members to maintain vote privacy"
     );
+    assert!(
+        options.len() >= 2,
+        "At least 2 options are required for a ballot"
+    );
 
     // Generate a process ID for this ballot deployment
     let process_id = generate_process_id(&ctx);

@@ -2,6 +2,10 @@
 
 A decentralized application for conducting private, verifiable voting on Partisia Blockchain. Built with zero-knowledge proofs and multi-party computation (MPC) to ensure vote privacy while maintaining verifiability.
 
+## Author
+
+[thebeyondr](https://github.com/thebeyondr) on behalf of [Raid Guild](https://www.raidguild.org/)
+
 ## Quick Links
 
 - [Getting Started](docs/getting-started/environment.md)

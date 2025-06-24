@@ -12,6 +12,7 @@ A decentralized application for conducting private, verifiable voting on Partisi
 - [Architecture](docs/architecture/overview.md)
 - [API Reference](docs/reference/api.md)
 - [Contributing](docs/development/contributing.md)
+- [Demo](https://www.loom.com/share/2116153293544fd8a8317584f29896f5?sid=10f23d7c-54fd-48d2-b6e3-c78d17d1f551)
 
 ## Documentation
 
